@@ -1,0 +1,15 @@
+packages:
+  - apps/mobile
+  - apps/worker
+allowBuilds:
+  esbuild: true
+  '@biomejs/biome': true
+  '@scarf/scarf': false
+  '@google/genai': false
+  protobufjs: false
+minimumReleaseAgeExclude:
+  - '@tanstack/ai-anthropic@0.18.13'
+  - '@tanstack/ai-gemini@0.32.1'
+  - '@tanstack/ai-openai@0.23.2'
+  - '@tanstack/ai@0.59.0'
+  - '@tanstack/openai-base@0.10.16'

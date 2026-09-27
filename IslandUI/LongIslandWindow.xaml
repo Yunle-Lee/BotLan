@@ -1,0 +1,110 @@
+<Window x:Class="IslandUI.LongIslandWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:IslandUI.Controls"
+        xmlns:bots="clr-namespace:IslandUI.Bots"
+        xmlns:services="clr-namespace:IslandUI.Services"
+        xmlns:local="clr-namespace:IslandUI"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
+        Width="380" Height="620"
+        Title="LongIsland">
+
+    <Window.Resources>
+        <local:NullToVisibilityConverter x:Key="NullToVis"/>
+        <local:HexToBrushConverter x:Key="HexToBrush"/>
+        <local:HexToColorConverter x:Key="HexToColor"/>
+    </Window.Resources>
+
+    <Grid>
+        <!-- 左侧弹出层:说话气泡 / 状态卡 -->
+        <Canvas x:Name="BubbleLayer" IsHitTestVisible="False"/>
+
+        <!-- 胶囊容器(与小岛同结构:阴影不裁剪滑块) -->
+        <Grid x:Name="CapsuleArea" HorizontalAlignment="Right" VerticalAlignment="Top"
+              Margin="0,14,14,0" Background="Transparent"
+              MouseLeftButtonDown="Capsule_MouseLeftButtonDown"
+              MouseMove="Capsule_MouseMove"
+              MouseLeftButtonUp="Capsule_MouseLeftButtonUp">
+            <Grid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="添加 Agent" Click="AddAgentMenuItem_Click"/>
+                    <MenuItem Header="切换到小岛（WiFi/电池）" Click="SwitchToSmall_Click"/>
+                    <Separator/>
+                    <MenuItem Header="退出" Click="ExitMenuItem_Click"/>
+                </ContextMenu>
+            </Grid.ContextMenu>
+
+            <!-- 可见胶囊 -->
+            <Border x:Name="Island" Width="64"
+                    CornerRadius="30,34,32,28"
+                    Background="{Binding Canvas, Source={x:Static local:ComicTheme.Current}}"
+                    BorderBrush="{Binding Outline, Source={x:Static local:ComicTheme.Current}}"
+                    BorderThickness="2.2">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="10" ShadowDepth="3" Opacity="0.18" Color="Black"/>
+                </Border.Effect>
+            </Border>
+
+            <!-- 内容叠层 -->
+            <Grid Width="{Binding ActualWidth, ElementName=Island}">
+                <StackPanel VerticalAlignment="Top" Margin="0,12,0,64">
+                    <!-- 添加 Agent -->
+                    <Border Width="40" Height="40" CornerRadius="20"
+                            Background="{Binding Card, Source={x:Static local:ComicTheme.Current}}"
+                            BorderBrush="{Binding Outline, Source={x:Static local:ComicTheme.Current}}"
+                            BorderThickness="2"
+                            Cursor="Hand" ToolTip="添加 Agent" Margin="0,4"
+                            MouseLeftButtonUp="AddAgent_Click">
+                        <TextBlock Text="+" FontFamily="Comic Sans MS" FontSize="20"
+                                   Foreground="{Binding Ink, Source={x:Static local:ComicTheme.Current}}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- bots:球形 bot + 彩色虚线圆环 -->
+                    <ItemsControl x:Name="BotColumn"
+                                  ItemsSource="{Binding Bots, Source={x:Static services:AgentStore.Instance}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Width="56" Height="56" Margin="0,6" Cursor="Hand"
+                                      ToolTip="{Binding Config.Name}"
+                                      MouseLeftButtonUp="Bot_Click">
+                                    <controls:RingArc Fraction="{Binding RingFraction}"
+                                                      Tint="{Binding Config.ColorHex, Converter={StaticResource HexToColor}}"
+                                                      StrokeWidth="3.5"/>
+                                    <Grid Width="40" Height="40"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <bots:BotView State="{Binding BotStateName}"
+                                                      Liveliness="True"
+                                                      Shape="{Binding Config.BotShape}"
+                                                      Expression="{Binding Config.BotExpression}"
+                                                      EyeColor="{Binding Canvas, Source={x:Static local:ComicTheme.Current}}"
+                                                      BodyColor="{Binding Config.ColorHex, Converter={StaticResource HexToBrush}}"/>
+                                    </Grid>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Keep the small island's settings affordance at the bottom. -->
+                <Border x:Name="GearButton" Width="32" Height="32" CornerRadius="16"
+                        Background="{Binding Card, Source={x:Static local:ComicTheme.Current}}"
+                        BorderBrush="{Binding Outline, Source={x:Static local:ComicTheme.Current}}"
+                        BorderThickness="2" ToolTip="设置"
+                        HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,14"
+                        Cursor="Hand"
+                        MouseLeftButtonUp="Gear_Click">
+                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                               Foreground="{Binding Ink, Source={x:Static local:ComicTheme.Current}}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </Grid>
+
+            <!-- 右上角明暗滑块:与小岛同款,贴胶囊角 -->
+            <controls:ThemeSlider Width="64" Height="64"
+                                  HorizontalAlignment="Right" VerticalAlignment="Top"
+                                  Value="{Binding ThemeValue, Source={x:Static local:IslandSettings.Instance}, Mode=TwoWay}"/>
+        </Grid>
+    </Grid>
+</Window>

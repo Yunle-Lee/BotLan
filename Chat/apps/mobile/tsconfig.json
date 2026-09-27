@@ -1,0 +1,14 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "moduleSuffixes": [".native", ""],
+    "lib": ["ES2022", "DOM"],
+    "paths": {
+      "@studio/domain": ["../../packages/domain/src/index.ts"]
+    },
+    "allowImportingTsExtensions": true
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}

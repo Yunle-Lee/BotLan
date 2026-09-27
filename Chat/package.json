@@ -1,0 +1,56 @@
+{
+  "name": "islandui-chat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build:island": "tsc -p tsconfig.build.json --outDir dist/island-server && node scripts/build-island-server.mjs && pnpm --dir apps/mobile exec expo export --platform web --output-dir ../../dist/island --max-workers 2",
+    "test:island": "tsx --test tests/island-integration.test.ts",
+    "dev": "tsx watch apps/server/src/index.ts",
+    "dev:mobile": "pnpm --dir apps/mobile start",
+    "dev:web": "pnpm --dir apps/mobile web",
+    "test": "tsx --test tests/*.test.ts apps/mobile/test/*.test.ts",
+    "test:browser": "node --experimental-strip-types --test apps/worker/tests/lifecycle.test.ts",
+    "typecheck": "tsc --noEmit && pnpm --dir apps/mobile typecheck",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "build:server": "tsc -p tsconfig.build.json",
+    "start": "node dist/apps/server/src/index.js",
+    "build:web": "pnpm --dir apps/mobile build:web",
+    "dev:worker": "tsx apps/server/src/worker-entry.ts",
+    "start:worker": "node dist/apps/server/src/worker-entry.js",
+    "dev:browser": "node --env-file=.env --import tsx apps/worker/src/index.ts",
+    "test:computer": "tsx --test apps/computer/smoke.test.ts"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.59",
+    "@ag-ui/core": "0.0.59",
+    "@copilotkit/runtime": "1.70.1",
+    "@electric-sql/pglite": "^0.3.14",
+    "@hono/node-server": "^1.19.0",
+    "@tanstack/ai": "^0.59.0",
+    "@tanstack/ai-anthropic": "^0.18.13",
+    "@tanstack/ai-gemini": "^0.32.1",
+    "@tanstack/ai-openai": "^0.23.2",
+    "hono": "^4.11.4",
+    "parse5": "^7.3.0",
+    "pdf-lib": "^1.17.1",
+    "pg": "^8.16.3",
+    "rxjs": "7.8.1",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.0",
+    "@copilotkit/aimock": "1.42.0",
+    "@copilotkit/core": "1.70.1",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.5",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.2"
+  }
+}

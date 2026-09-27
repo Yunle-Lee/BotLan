@@ -1,0 +1,30 @@
+# ---- .NET / WPF ----
+bin/
+obj/
+build/
+*.user
+*.suo
+.vs/
+
+# ---- Node / 前端 ----
+node_modules/
+dist/
+.pnpm-store/
+*.tsbuildinfo
+
+# ---- 本地运行数据（聊天记录、Bot 配置、WebView 用户目录）----
+# 安装版在 %LOCALAPPDATA%\IslandUI，开发版在 Chat/.island-data
+.island-data/
+Chat/.island-data/
+
+# ---- 环境变量与密钥 ----
+.env
+.env.*
+!.env.example
+
+# ---- 编辑器与系统 ----
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+*.log

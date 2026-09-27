@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "AI Studio",
+    "slug": "ai-studio",
+    "scheme": "aistudio",
+    "version": "0.1.0",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": { "supportsTablet": true, "bundleIdentifier": "app.aistudio.mobile" },
+    "android": { "package": "app.aistudio.mobile" },
+    "web": { "bundler": "metro", "name": "AI Studio — Personal Agent Workspace" },
+    "plugins": [
+      "expo-document-picker",
+      "@config-plugins/react-native-blob-util",
+      "@config-plugins/react-native-pdf"
+    ]
+  }
+}
