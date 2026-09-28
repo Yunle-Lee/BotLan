@@ -1,4 +1,6 @@
-# IslandUI · BotLan
+<img width="1024" height="306" alt="2bb536d100d8b81aa02d922d9aa517ba" src="https://github.com/user-attachments/assets/1112a865-20a4-4da7-a7b5-01fbaf2088f3" />
+
+<img width="1163" height="920" alt="mockup" src="https://github.com/user-attachments/assets/4f65a0a4-7fc9-4690-9977-9b2ba4335d10" />
 
 > Windows 桌面「胶囊 / 灵动岛」外壳，内嵌一个可管理本地文件的 Agent 聊天工作区。
 > A Windows desktop "dynamic island" shell with an embedded, local-file-managing chat agent.
@@ -20,6 +22,7 @@
 IslandUI 把屏幕顶部的一小块区域变成一个可交互的「胶囊」：平时安静停靠，鼠标悬停展开，双击进入更大的 Long Island，再往下就是一个带 Bot 形象的 Chat 工作区。聊天界面不是外挂窗口，而是由本地 Node 后台驱动、通过 WebView2 嵌入的页面；后台负责会话、任务、工具调用与本地文件操作，模型请求由使用者自己配置。
 
 界面语言为中文，代码与配置以本仓库为准。
+
 
 ## 主要功能
 
