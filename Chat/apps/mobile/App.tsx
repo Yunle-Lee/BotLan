@@ -10,6 +10,7 @@ import {
   MessageCircle,
   PanelsTopLeft,
   Shapes,
+  Sparkles,
   SquareCheck,
   X,
 } from "lucide-react-native";
@@ -36,6 +37,7 @@ import { AgentWorkspaceProvider, useAgentWorkspace } from "./src/agent-workspace
 import { API_URL, createSession, MuseApi } from "./src/api";
 import { ChatScreen, WorkspaceTools } from "./src/chat";
 import { CodeWorkbenchScreen } from "./src/code-workbench";
+import { SkillsScreen } from "./src/skills-screen";
 import { ComputerEntry } from "./src/computer";
 import { ComputerDraftProvider } from "./src/computer-drafts";
 import { Details } from "./src/details";
@@ -295,6 +297,8 @@ function WorkspaceShell({
   const Screen =
     section === "code"
       ? CodeWorkbenchScreen
+      : section === "skills"
+        ? SkillsScreen
       : section === "mail"
         ? MailScreen
         : section === "calendar"
@@ -320,6 +324,7 @@ function WorkspaceShell({
   );
   const secondaryNav: { id: Section; label: string; icon: LucideIcon }[] = useMemo(
     () => [
+      { id: "skills", label: navLabels.skills, icon: Sparkles },
       { id: "activity", label: navLabels.activity, icon: PanelsTopLeft },
       { id: "ideas", label: navLabels.ideas, icon: Lightbulb },
       { id: "goals", label: navLabels.goals, icon: SquareCheck },

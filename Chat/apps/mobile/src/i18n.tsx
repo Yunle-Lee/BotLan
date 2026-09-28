@@ -92,6 +92,7 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.ideas": "灵感",
     "nav.goals": "目标",
     "nav.apps": "应用",
+    "nav.skills": "技能",
 
     // Section Titles
     "section.code.title": "代码工作台",
@@ -102,6 +103,8 @@ const translations: Record<Language, Record<string, string>> = {
     "section.ideas.subtitle": "结合当前上下文为你推荐的下一步操作。",
     "section.goals.title": "长期目标",
     "section.goals.subtitle": "长期关注的目标与网页变动监控任务。",
+    "section.skills.title": "技能广场",
+    "section.skills.subtitle": "NVIDIA 与 OpenClaw 智能体技能集市，即装即用。",
     "section.apps.title": "工具与应用",
     "section.apps.subtitle": "已连接的外部应用、能力插件与记忆上下文。",
     "section.connections.title": "工具与应用",
@@ -162,6 +165,8 @@ const translations: Record<Language, Record<string, string>> = {
     "menu.sideChats": "侧边会话",
     "menu.codeWorkbench": "代码工作台",
     "menu.codeWorkbenchDesc": "浏览代码、文件编辑与终端控制",
+    "menu.skills": "技能广场",
+    "menu.skillsDesc": "查看与安装 Bot 专属技能",
 
     // Settings
     "settings.conversationStorage": "会话存储",
@@ -235,6 +240,7 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.ideas": "Ideas",
     "nav.goals": "Goals",
     "nav.apps": "Apps",
+    "nav.skills": "Skills",
 
     // Section Titles
     "section.code.title": "Code Workbench",
@@ -245,6 +251,8 @@ const translations: Record<Language, Record<string, string>> = {
     "section.ideas.subtitle": "Useful next steps, grounded in your world.",
     "section.goals.title": "Goals",
     "section.goals.subtitle": "Longer-term goals and things to keep an eye on.",
+    "section.skills.title": "Skills Marketplace",
+    "section.skills.subtitle": "NVIDIA & OpenClaw Agent Skills Marketplace.",
     "section.apps.title": "Apps",
     "section.apps.subtitle": "Connections, capabilities and what your agent remembers.",
     "section.connections.title": "Apps",
@@ -305,6 +313,8 @@ const translations: Record<Language, Record<string, string>> = {
     "menu.sideChats": "Side chats",
     "menu.codeWorkbench": "Code Workbench",
     "menu.codeWorkbenchDesc": "Code exploration, editing and terminal",
+    "menu.skills": "Skills Marketplace",
+    "menu.skillsDesc": "Browse and manage Bot skills",
 
     // Settings
     "settings.conversationStorage": "Conversation storage",
@@ -346,6 +356,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     ideas: t("nav.ideas"),
     goals: t("nav.goals"),
     apps: t("nav.apps"),
+    skills: t("nav.skills"),
     today: t("nav.chat"),
     connections: t("nav.apps"),
     mail: t("section.mail.title"),
@@ -372,6 +383,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     goals: {
       title: t("section.goals.title"),
       subtitle: t("section.goals.subtitle"),
+    },
+    skills: {
+      title: t("section.skills.title"),
+      subtitle: t("section.skills.subtitle"),
     },
     apps: {
       title: t("section.apps.title"),

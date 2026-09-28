@@ -10,6 +10,7 @@ import {
   Plus,
   RefreshCw,
   Settings2,
+  Sparkles,
 } from "lucide-react-native";
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
@@ -359,7 +360,7 @@ export function ThreadsSheet({ onClose }: { onClose: () => void }) {
     }
   }
 
-  function go(section: "calendar" | "files" | "apps" | "code") {
+  function go(section: "calendar" | "files" | "apps" | "code" | "skills") {
     onClose();
     navigate(section);
   }
@@ -390,6 +391,12 @@ export function ThreadsSheet({ onClose }: { onClose: () => void }) {
           title={t("menu.codeWorkbench")}
           detail={t("menu.codeWorkbenchDesc")}
           onPress={() => go("code")}
+        />
+        <LinkRow
+          icon={Sparkles}
+          title={t("menu.skills")}
+          detail={t("menu.skillsDesc")}
+          onPress={() => go("skills")}
         />
         <LinkRow
           icon={Plus}
