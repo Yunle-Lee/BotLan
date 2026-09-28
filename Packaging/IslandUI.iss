@@ -10,7 +10,7 @@
 [Setup]
 AppId={{823C74D2-73CD-4FCB-84AA-C9C2F88F1358}
 AppName=IslandUI
-AppVersion=1.0.0
+AppVersion=1.1.0
 DefaultDirName={localappdata}\Programs\IslandUI
 DefaultGroupName=IslandUI
 PrivilegesRequired=lowest
