@@ -16,6 +16,9 @@
 [下载安装包](https://github.com/Yunle-Lee/BotLan/releases/latest) · [English](#english)
 
 ---
+## 官网 
+https://kilee.cn/botlan/
+
 
 ## 简介
 
@@ -32,6 +35,12 @@ IslandUI 把屏幕顶部的一小块区域变成一个可交互的「胶囊」�
 本产品以及作品目前用于且为其而生:第三届Nvidia DGX Spark Hackthon,迎合赛事需求，赛后开发者可以提供自己个性化的想法或者pr,随时欢迎
 
 ## 主要功能
+**Skills 与英伟达DGX Spark **
+- 源自Nvidia官方的Agent Skill的调制，一键部署，轻松上手
+- Awesome Skills补齐剩下的Agent需求，让你的选择更加的全面
+
+<img width="1503" height="833" alt="7eb31b850076f57ed44af01c4d06cf37" src="https://github.com/user-attachments/assets/681b3fe8-8161-4961-b212-78e6ad1fab33" />
+
 
 **胶囊与岛**
 
@@ -49,6 +58,8 @@ IslandUI 把屏幕顶部的一小块区域变成一个可交互的「胶囊」�
 - 会话与线程、产物（artifacts）、代码工作台、浏览器控制台、PDF 阅读、邮件工具卡片、日期时间编辑。
 - 本地后台基于 Hono + PGlite（Postgres WASM），模型适配覆盖 OpenAI / Anthropic / Gemini 等兼容接口。
 - 可选 Docker 计算容器（`Chat/apps/computer`）与浏览器容器（`Chat/apps/worker`），**不自动安装、不自动授权**，需自行准备。
+
+
 
 ## 下载与安装
 
