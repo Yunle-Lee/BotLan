@@ -30,6 +30,25 @@ https://kilee.cn/botlan/
 -天界面不是外挂窗口，而是由本地 Node 后台驱动、通过 WebView2 嵌入的页面；后台负责会话、任务、工具调用与本地文件操作，模型请求由使用者自己配置。
 
 界面语言为中英双语，代码与配置以本仓库为准。
+# 说明书: 
+## 项目说明
+
+- 首先在你的DGX Spark上运行你的本地模型(当然你到时候也可以选择使用这个API key): 基座模型更新速度较快，每个人的需求也不一样，所以我们给用户宽广的选择
+- 在主力电脑上下载本项目的桌面端面板
+- https://kilee.cn/vl/ 访问官网的链接端，按照需求，注册登陆账号
+- 登陆进去之后，点击[添加设备]，在DGX Spark上执行网站给你的对接指令
+- 链接之后，即可使用DGX Spark本地跑的模型，支持TensorRT以及常见的vLLm,Sglang,llama.cpp
+- 然后打开Botlan,双击可以切换到Long island,点击添加Bot,输入在[ https://kilee.cn/vl/]里面创建的API Key以及base url,即可使用DGX Spark本地运行的模型了
+- 但是如果你没有本地模型的想法，你也可以直接在Bot创建的时候填入市面上主流的LLMs的API Key以及base url等诸多info
+- 自定义Bot之后点击Bot pfp icon,进入Chat panel,即可对话，如果想要使用BotLan Agent处理这个DGX Spark这个本地的文件，需要到[代码工作区]链接你的DGX Spark
+- 如果想要给Agent添加Skills,可以点击skills,直接一键部署skills给本地的Agent,提供了Nvidia的skills,以及awesome skills，如果你还有更多的需求，可以到我们官网的Skills广场上去逛逛
+- 然后你就可以工作了，Botlan推荐把你每一个DGX Spark当作一个节点，每一个Bot就是一台DGX Spark
+- 你可以非常方便地在右上角直接使用[鼠标滚轮去切换]，这个是我们开创的便捷方式，方便个人玩家或者是工作室管理DGX Spark农场
+- 你还可以添加你的定时任务，填写健康信息，财务报告，让Agent融入到你的生活种
+
+  <img width="1635" height="1198" alt="29fb3f1e0b69291c7c5b5ea8fab5f8a5" src="https://github.com/user-attachments/assets/bf17ac10-e6e3-4813-b9e8-1119a99611dd" />
+
+  
 ## 使用事项
 - 下载后是那个Long island状态，存在bot
 - 双击后切换为small island状态
