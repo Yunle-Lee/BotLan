@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically reconcile kilee-vl tenant tunnels
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=20s
+AccuracySec=3s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

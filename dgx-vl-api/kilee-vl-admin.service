@@ -1,0 +1,43 @@
+[Unit]
+Description=Kilee VL Admin - DGX Qwen3-VL multi-tenant gateway & API key console
+Documentation=https://kilee.cn/vl/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kilee-vl-admin
+Group=kilee-vl-admin
+WorkingDirectory=/opt/kilee-vl-admin
+ExecStart=/usr/bin/node /opt/kilee-vl-admin/server.js
+Environment=NODE_ENV=production
+Environment=VL_HOST=127.0.0.1
+Environment=VL_PORT=8811
+Environment=VL_DATA_DIR=/var/lib/kilee-vl-admin
+Environment=VL_SERVER_HOST=kilee.cn
+Environment=VL_MODEL=qwen3-vl
+Environment=VL_TUNNEL_USER=kilee-tunnel
+Environment=VL_TUNNEL_PORT_MIN=8820
+Environment=VL_TUNNEL_PORT_MAX=8899
+Environment=VL_RESERVED_PORTS=8801,8811
+Environment=VL_DEFAULT_UPSTREAM_PORT=8001
+Environment=VL_ALLOW_REGISTER=1
+Restart=always
+RestartSec=3
+
+# 加固
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+
+[Install]
+WantedBy=multi-user.target

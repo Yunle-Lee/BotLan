@@ -195,3 +195,76 @@ dotnet build IslandUI/IslandUI.csproj
 Installed builds keep user data in `%LOCALAPPDATA%\IslandUI`; source builds use `Chat/.island-data`. Neither belongs in version control. This repository ships no `.env` files, API keys, chat databases, WebView profiles, `node_modules` or build output.
 
 See [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [`licenses/`](licenses/) for licensing. The bundled Maple Mono fonts are under SIL OFL 1.1; .NET, WebView2, Node.js and the JavaScript dependencies keep their respective licenses.
+
+---
+
+## 附加模块：DGX VL API（把本地 DGX Spark 模型变成公网 OpenAI 兼容 API）
+
+> 目录：[`dgx-vl-api/`](dgx-vl-api/) · 详细文档：[`dgx-vl-api/README.md`](dgx-vl-api/README.md)
+
+把 DGX Spark 上本地运行的 vLLM 多模态模型（`Qwen3-VL-30B-A3B-Thinking`，BF16）经跳板机
+暴露为**公网 OpenAI 兼容 API**，并配一个带 API key 管理的网页控制台。
+支持**多台 DGX / 多个账号**，对外共用同一个 Base URL，由 API key 决定路由到哪台设备。
+
+| | |
+| --- | --- |
+| 控制台 | <https://kilee.cn/vl/> |
+| Base URL | `https://kilee.cn/api/vl` |
+| 模型名 | `qwen3-vl`（必须精确是这个值） |
+
+**核心设计：永远 outbound。** DGX 主动向跳板机建 SSH 反向隧道，服务器**从不主动连 DGX**，
+只保存公钥、**私钥永不离开对方机器**；隧道账号被 `authorized_keys` 的 `permitlisten`
+钉死在单个回环端口，`sshd` 的 `Match` 块堵死本地转发与 shell。
+
+**新增能力**
+
+- **多租户**：自助注册/登录 → 「添加设备」拿到一条命令 → 在自己的 DGX 上以 root 执行即完成配对；
+  对外 Base URL 不变，`keys[].deviceId` 决定路由。
+- **控制台**：概览、设备管理（在线探测、上线轮询、僵尸设备识别与一键清理）、
+  API key 全生命周期（创建 / 轮换 / 吊销 / 恢复 / 删除 / 清零统计）、
+  每 key 每日配额、在线对话测试台（支持看图与流式）、owner 账号管理。
+- **网关**：`POST /api/vl/chat/completions`、`GET /api/vl/models`，负责 key 校验、用量统计与按 key 路由；
+  统一错误语义（`401 invalid_api_key` / `403 account_disabled` / `429 rate_limit_error` /
+  `503 upstream_unavailable`）。
+- **防重复配对与防僵尸设备**：一把公钥只能属于一个账号，跨账号重复配对返回 `409 pubkey_in_use`；
+  每账号设备数上限返回 `409 device_limit`；长期离线的设备会在控制台被标记并可一键清理。
+
+**文件**（全部在新目录 `dgx-vl-api/`，与主项目的 `IslandUI` / `Chat` 互不影响）
+
+```
+dgx-vl-api/server.js                 网关 + 控制台后端（纯 Node 内置模块，零依赖）
+dgx-vl-api/init-admin.js             一次性初始化：生成管理密码、迁移数据
+dgx-vl-api/public/index.html         控制台前端（单文件 SPA）
+dgx-vl-api/public/agent.sh           DGX 侧连接器：生成密钥 → 配对 → 装反向隧道
+dgx-vl-api/deploy/                   provisioner 与 sshd Match 片段
+dgx-vl-api/kilee-vl-admin.service    网关的 systemd 单元
+dgx-vl-api/patch-nginx.py            给 nginx 站点打补丁
+dgx-vl-api/DESIGN-multitenant.md     多租户设计草案
+dgx-vl-api/README.md                 完整文档（架构 / 接口 / 安全 / 运维 / 踩坑）
+```
+
+**调用示例**
+
+```bash
+curl https://kilee.cn/api/vl/chat/completions \
+  -H "Authorization: Bearer vl_xxx" -H 'Content-Type: application/json' \
+  -d '{"model":"qwen3-vl","messages":[{"role":"user","content":"你好"}],"max_tokens":1200}'
+```
+
+```python
+from openai import OpenAI
+c = OpenAI(base_url="https://kilee.cn/api/vl", api_key="vl_xxx")
+print(c.chat.completions.create(model="qwen3-vl",
+      messages=[{"role":"user","content":"你好"}], max_tokens=1200).choices[0].message.content)
+```
+
+> 本仓库不含任何真实密钥。Thinking 模型注意：`max_tokens` 建议 ≥ 800（否则会被 reasoning 吃光），
+> `--max-num-seqs 1` 为单并发，非流式调用请把客户端超时设到 300s 以上。
+
+**Addition (English) — DGX VL API.** See [`dgx-vl-api/`](dgx-vl-api/). It exposes a locally hosted
+vLLM multimodal model on a DGX Spark as a public OpenAI-compatible API
+(`https://kilee.cn/api/vl`, model `qwen3-vl`), together with a web console for API-key
+management, per-key daily quotas, device pairing and usage stats. It is multi-tenant: many
+devices and accounts share one base URL, and the API key selects the route. The design is
+outbound-only — the DGX dials out to the jump host over a restricted SSH reverse tunnel, so the
+server never connects back and never holds a private key.

@@ -1,0 +1,7 @@
+[Unit]
+Description=Reconcile kilee-vl tenant SSH tunnel authorized_keys
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kilee-vl-provision.sh

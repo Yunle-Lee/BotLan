@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DGX Spark · Qwen3-VL 对接台</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#141a24; --panel-2:#1b2330; --line:#26303f;
+    --txt:#e6edf6; --dim:#8b9bb0; --dim-2:#63748c;
+    --acc:#4c9aff; --acc-2:#1f6feb; --ok:#3fb950; --warn:#d29922; --err:#f85149;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:14px;line-height:1.6}
+  a{color:var(--acc);text-decoration:none}
+  .hidden{display:none !important}
+  .mono{font-family:var(--mono)}
+
+  /* ── 通用组件 ── */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+  .card h2{margin:0 0 4px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .card .sub{color:var(--dim);font-size:12.5px;margin:0 0 14px}
+  button{font-family:inherit;font-size:13px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--txt);padding:7px 14px;cursor:pointer;transition:.15s}
+  button:hover:not(:disabled){border-color:var(--acc);color:#fff}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:var(--acc-2);border-color:var(--acc-2);color:#fff}
+  button.primary:hover:not(:disabled){background:#2a7ff5}
+  button.danger{border-color:#5b2b2b;color:#ff9d95}
+  button.danger:hover:not(:disabled){border-color:var(--err);color:#fff;background:#3b1d1d}
+  button.tiny{padding:4px 9px;font-size:12px;border-radius:6px}
+  input,textarea,select{font-family:inherit;font-size:13px;background:#0d1219;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 11px;width:100%;outline:none}
+  input:focus,textarea:focus,select:focus{border-color:var(--acc)}
+  label{display:block;font-size:12px;color:var(--dim);margin-bottom:5px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .grow{flex:1;min-width:160px}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel-2);color:var(--dim)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+  .pill.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .pill.on{color:#9ae6a0;border-color:#1f4526}
+  .pill.off .dot{background:var(--err)}
+  .pill.off{color:#ffb3ad;border-color:#4a2020}
+  .tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+  .tag.active{background:#0f2f18;color:#7ee787;border-color:#1f4526}
+  .tag.revoked{background:#3b1d1d;color:#ff9d95;border-color:#5b2b2b}
+  .tag.expired{background:#332a0d;color:#e3b341;border-color:#4d3f13}
+
+  /* ── 登录 ── */
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  #login .box{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:30px 26px}
+  #login h1{margin:0 0 4px;font-size:19px;font-weight:650}
+  #login p{margin:0 0 22px;color:var(--dim);font-size:12.5px}
+  #loginErr{color:var(--err);font-size:12.5px;min-height:18px;margin-top:10px}
+
+  /* ── 主体 ── */
+  main{max-width:1140px;margin:0 auto;padding:22px 18px 70px}
+  header.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+  header.top h1{margin:0;font-size:17px;font-weight:650;letter-spacing:.2px}
+  header.top .sp{flex:1}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+  .stat .k{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  .stat .v{font-size:22px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
+
+  .copyline{display:flex;gap:8px;align-items:center;background:#0d1219;border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+  .copyline code{flex:1;font-family:var(--mono);font-size:13px;overflow-x:auto;white-space:nowrap;color:#cfd9e6}
+  pre.code{background:#0d1219;border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;margin:12px 0 0;color:#b8c6d8}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-weight:500;color:var(--dim);font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:11px 10px;border-bottom:1px solid #1c242f;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#161d28}
+  .num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+  .empty{color:var(--dim-2);text-align:center;padding:26px 0;font-size:13px}
+
+  /* ── 测试台 ── */
+  #chatWrap{height:400px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;background:#0d1219;padding:14px;margin-bottom:12px;scroll-behavior:smooth}
+  .msg{margin-bottom:16px;display:flex;gap:10px}
+  .msg .who{flex:0 0 46px;font-size:11px;color:var(--dim-2);padding-top:3px;text-align:right}
+  .msg .body{flex:1;min-width:0}
+  .msg .bubble{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 13px;white-space:pre-wrap;word-break:break-word}
+  .msg.me .bubble{background:#152438;border-color:#1e3a5f}
+  .msg .think{margin-top:8px;border-left:2px solid #3a4553;padding-left:10px;color:var(--dim-2);font-size:12.5px;white-space:pre-wrap;max-height:190px;overflow-y:auto}
+  .msg .imgs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .msg .imgs img{height:74px;border-radius:7px;border:1px solid var(--line)}
+  .msg.err .bubble{border-color:#5b2b2b;color:#ffb3ad}
+  #attachments{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  #attachments .att{position:relative}
+  #attachments img{height:56px;border-radius:7px;border:1px solid var(--line);display:block}
+  #attachments .x{position:absolute;top:-6px;right:-6px;background:#3b1d1d;border:1px solid #5b2b2b;color:#ff9d95;border-radius:50%;width:18px;height:18px;line-height:15px;text-align:center;font-size:12px;cursor:pointer}
+  .chatbar textarea{resize:vertical;min-height:62px}
+  .chatbtns{display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap}
+  .chatbtns .sp{flex:1}
+  .hint{font-size:11.5px;color:var(--dim-2)}
+
+  /* ── 弹窗 / 提示 ── */
+  #modal,#pairModal,#quotaModal{position:fixed;inset:0;background:rgba(4,7,12,.78);display:flex;align-items:center;justify-content:center;padding:20px;z-index:60}
+  #modal .box,#pairModal .box,#quotaModal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;max-width:560px;width:100%}
+  #modal h3,#pairModal h3,#quotaModal h3{margin:0 0 6px;font-size:15px}
+  #modal p,#pairModal p,#quotaModal p{margin:0 0 14px;color:var(--dim);font-size:12.5px}
+  #toast{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:80}
+  .toast{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:10px 15px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.45);animation:in .18s ease}
+  .toast.ok{border-left-color:var(--ok)} .toast.err{border-left-color:var(--err)}
+  @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- ══════════ 登录 / 注册 ══════════ -->
+<section id="login" class="hidden">
+  <div class="box">
+    <h1>DGX Spark · 模型对接台</h1>
+    <p id="loginHint">登录后管理你的设备与 API Key</p>
+
+    <div id="loginForm">
+      <label for="user">用户名</label>
+      <input id="user" autocomplete="username" placeholder="owner">
+      <label for="pw" style="margin-top:10px">密码</label>
+      <input id="pw" type="password" autocomplete="current-password">
+      <div style="margin-top:14px"><button class="primary" id="loginBtn" style="width:100%">登录</button></div>
+      <div style="margin-top:10px;text-align:center"><a href="#" id="toRegister" class="hint">没有账号？注册接入</a></div>
+    </div>
+
+    <div id="regForm" class="hidden">
+      <label for="rUser">用户名（3-32 位：小写字母/数字/-/_）</label>
+      <input id="rUser" autocomplete="username">
+      <label for="rPw" style="margin-top:10px">密码（至少 10 位）</label>
+      <input id="rPw" type="password" autocomplete="new-password">
+      <div id="rInviteWrap" class="hidden" style="margin-top:10px">
+        <label for="rInvite">邀请码</label><input id="rInvite">
+      </div>
+      <div style="margin-top:14px"><button class="primary" id="regBtn" style="width:100%">注册</button></div>
+      <div style="margin-top:10px;text-align:center"><a href="#" id="toLogin" class="hint">已有账号？登录</a></div>
+    </div>
+
+    <div id="loginErr"></div>
+  </div>
+</section>
+
+<!-- ══════════ 主体 ══════════ -->
+<main id="app" class="hidden">
+  <header class="top">
+    <h1>DGX Spark · 模型对接台</h1>
+    <span id="upPill" class="pill"><span class="dot"></span><span id="upTxt">检测中…</span></span>
+    <span id="mePill" class="pill"></span>
+    <span class="sp"></span>
+    <button class="tiny" id="refreshBtn">刷新</button>
+    <button class="tiny" id="logoutBtn">退出登录</button>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="k">活跃 Key</div><div class="v" id="sKeys">–</div></div>
+    <div class="stat"><div class="k">累计请求</div><div class="v" id="sReq">–</div></div>
+    <div class="stat"><div class="k">输入 Token</div><div class="v" id="sIn">–</div></div>
+    <div class="stat"><div class="k">输出 Token</div><div class="v" id="sOut">–</div></div>
+  </div>
+
+  <!-- 接入信息 -->
+  <div class="card">
+    <h2>接入信息</h2>
+    <p class="sub">把它填到任何 OpenAI 兼容客户端里即可。Base URL 末尾不要再加 <code class="mono">/v1</code>。</p>
+    <label>Base URL</label>
+    <div class="copyline"><code id="baseUrl">–</code><button class="tiny" data-copy="baseUrl">复制</button></div>
+    <label style="margin-top:12px">模型名</label>
+    <div class="copyline"><code id="modelName">–</code><button class="tiny" data-copy="modelName">复制</button></div>
+    <pre class="code" id="curlSample"></pre>
+  </div>
+
+  <!-- 设备 -->
+  <div class="card">
+    <h2>我的设备（DGX Spark）</h2>
+    <p class="sub">每台 DGX 通过一条反向隧道接入。点「添加设备」生成配对命令，在 DGX 上以 root 执行即可，无需公网 IP。</p>
+    <div class="row" style="margin-bottom:14px">
+      <button class="primary" id="addDeviceBtn">+ 添加设备</button>
+      <button class="tiny danger hidden" id="cleanZombieBtn"></button>
+      <span class="hint" id="devHint"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>名称</th><th>状态</th><th>模型</th><th class="num">隧道端口</th><th>最后在线</th><th></th>
+        </tr></thead>
+        <tbody id="devRows"></tbody>
+      </table>
+    </div>
+    <div id="devEmpty" class="empty">还没有设备，点「添加设备」把一台 DGX Spark 接进来</div>
+  </div>
+
+  <!-- API Keys -->
+  <div class="card">
+    <h2>API Keys</h2>
+    <p class="sub">创建 / 吊销立即生效，无需重启任何服务。完整 key 只在创建和轮换时显示一次。key 绑定到某台设备。</p>
+    <div class="row" style="margin-bottom:16px">
+      <div class="grow"><label for="kLabel">用途备注</label><input id="kLabel" placeholder="例如：给小王测试 / 我的笔记本"></div>
+      <div style="width:190px"><label for="kDevice">绑定设备</label><select id="kDevice"></select></div>
+      <div style="width:130px"><label for="kDays">有效期（天，留空=永久）</label><input id="kDays" type="number" min="1" placeholder="永久"></div>
+      <button class="primary" id="createBtn">创建 Key</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>备注</th><th>Key</th><th>设备</th><th>状态</th><th>最后使用</th>
+          <th class="num">请求</th><th class="num">失败</th><th class="num">输入 tok</th><th class="num">输出 tok</th><th></th>
+        </tr></thead>
+        <tbody id="keyRows"></tbody>
+      </table>
+    </div>
+    <div id="keyEmpty" class="empty">还没有 key，先创建一个吧</div>
+  </div>
+
+  <!-- 测试台 -->
+  <div class="card">
+    <h2>对话测试台</h2>
+    <p class="sub">直接调用 DGX 上的 Qwen3-VL（走同一条链路，但不消耗任何 key 的额度）。支持贴图 / 上传图片。</p>
+    <div id="chatWrap"></div>
+    <div class="chatbar">
+      <div id="attachments"></div>
+      <textarea id="chatInput" placeholder="说点什么…（可直接 Ctrl+V 粘贴截图）"></textarea>
+      <div class="chatbtns">
+        <button class="tiny" id="pickImg">+ 图片</button>
+        <input type="file" id="fileInput" accept="image/*" multiple class="hidden">
+        <label style="margin:0;display:flex;align-items:center;gap:6px;color:var(--dim)">max_tokens
+          <input id="maxTok" type="number" value="1200" min="64" style="width:82px">
+        </label>
+        <label style="margin:0;display:flex;align-items:center;gap:6px;color:var(--dim)">
+          <input type="checkbox" id="streamChk" checked style="width:auto"> 流式
+        </label>
+        <span class="sp"></span>
+        <span class="hint" id="chatHint"></span>
+        <button class="tiny" id="clearChat">清空</button>
+        <button class="primary" id="sendBtn">发送</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 账号（仅 owner 可见） -->
+  <div class="card hidden" id="accountsCard">
+    <h2>租户账号（管理员）</h2>
+    <p class="sub">停用后该账号立即无法登录，其所有 key 也立即失效；删除会一并移除其设备与 key。</p>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>用户名</th><th>角色</th><th>状态</th><th class="num">设备</th><th class="num">Key</th><th></th></tr></thead>
+        <tbody id="acctRows"></tbody>
+      </table>
+    </div>
+    <div id="acctEmpty" class="empty">暂无租户账号</div>
+  </div>
+
+  <!-- 修改密码 -->
+  <div class="card">
+    <h2>登录密码</h2>
+    <p class="sub">修改后当前账号的已登录会话立即失效，需要重新登录。</p>
+    <div class="row">
+      <div class="grow"><label for="pwCur">当前密码</label><input id="pwCur" type="password" autocomplete="current-password"></div>
+      <div class="grow"><label for="pwNew">新密码（≥10 位）</label><input id="pwNew" type="password" autocomplete="new-password"></div>
+      <button id="pwBtn">修改</button>
+    </div>
+  </div>
+</main>
+
+<!-- ══════════ 新 key 弹窗 ══════════ -->
+<div id="modal" class="hidden">
+  <div class="box">
+    <h3 id="mTitle">新建 API Key</h3>
+    <p id="mDesc">请立即复制保存 —— 关闭后无法再次查看完整 key。</p>
+    <div class="copyline"><code id="mKey"></code><button class="tiny" id="mCopy">复制</button></div>
+    <div style="margin-top:16px;text-align:right"><button class="primary" id="mClose">我已保存</button></div>
+  </div>
+</div>
+
+<!-- ══════════ 添加设备弹窗 ══════════ -->
+<div id="pairModal" class="hidden">
+  <div class="box" style="max-width:660px">
+    <h3>添加设备</h3>
+    <p>在目标 DGX Spark 上以 <b>root</b> 执行下面这条命令。配对码 <span id="pairTtl"></span>，仅可用一次。</p>
+    <pre class="code" id="pairCmd" style="white-space:pre-wrap;word-break:break-all"></pre>
+    <div style="margin-top:10px"><button class="tiny" id="pairCopy">复制命令</button> <span class="hint" id="pairNote"></span></div>
+    <div style="margin-top:16px;text-align:right"><button class="primary" id="pairClose">完成</button></div>
+  </div>
+</div>
+
+<!-- ══════════ 配额弹窗 ══════════ -->
+<div id="quotaModal" class="hidden">
+  <div class="box" style="max-width:470px">
+    <h3>设置每日配额</h3>
+    <p>填 <b>0</b> 或留空 = 不限。达到上限后该 key 当天返回 <span class="mono">429</span>，次日自动重置。</p>
+    <div class="row">
+      <div class="grow"><label for="qReq">每天最大请求数</label><input id="qReq" type="number" min="0" placeholder="0 = 不限"></div>
+      <div class="grow"><label for="qTok">每天最大 token 数</label><input id="qTok" type="number" min="0" placeholder="0 = 不限"></div>
+    </div>
+    <div id="quotaToday" class="hint" style="margin-top:10px"></div>
+    <div style="margin-top:16px;text-align:right">
+      <button class="tiny" id="qCancel">取消</button>
+      <button class="primary" id="qSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const api = async (p, opt = {}) => {
+  // 注意：headers 必须单独合并——直接 Object.assign 会被 opt.headers 整个覆盖，
+  // 导致 POST 丢掉 X-Requested-With 而被后端的 CSRF 校验打回。
+  const headers = Object.assign({ 'X-Requested-With': 'vl' }, opt.headers || {});
+  const r = await fetch(p, Object.assign({ credentials: 'same-origin' }, opt, { headers }));
+  if (r.status === 401 && !p.endsWith('/login') && !p.endsWith('/session')) { showLogin(); throw new Error('会话已过期'); }
+  return r;
+};
+const jpost = (p, body) => api(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+const fmt = (n) => (n == null ? '–' : Number(n).toLocaleString('en-US'));
+const fmtTime = (t) => {
+  if (!t) return '—';
+  const d = new Date(t), p = (x) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
+function toast(msg, kind) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind || '');
+  el.textContent = msg;
+  $('toast').appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+async function copyText(txt) {
+  try { await navigator.clipboard.writeText(txt); toast('已复制', 'ok'); }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('已复制', 'ok'); } catch { toast('复制失败，请手动选择', 'err'); }
+    ta.remove();
+  }
+}
+
+/* ══════════ 登录 / 注册 / 会话 ══════════ */
+let ME = null;
+function showLogin() {
+  $('app').classList.add('hidden'); $('login').classList.remove('hidden');
+  $('loginForm').classList.remove('hidden'); $('regForm').classList.add('hidden');
+  $('loginErr').textContent = '';
+  $('user').focus();
+}
+function showApp(me) {
+  ME = me || ME;
+  if (ME) $('mePill').textContent = ME.role === 'owner' ? `管理员 · ${ME.username}` : ME.username;
+  $('accountsCard').classList.toggle('hidden', !(ME && ME.role === 'owner'));
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  refresh();
+}
+
+$('toRegister').onclick = (e) => { e.preventDefault(); $('loginForm').classList.add('hidden'); $('regForm').classList.remove('hidden'); $('loginErr').textContent = ''; };
+$('toLogin').onclick = (e) => { e.preventDefault(); $('regForm').classList.add('hidden'); $('loginForm').classList.remove('hidden'); $('loginErr').textContent = ''; };
+
+$('loginBtn').onclick = doLogin;
+$('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+async function doLogin() {
+  $('loginErr').textContent = '';
+  $('loginBtn').disabled = true;
+  try {
+    const r = await jpost('/vl/api/login', { username: $('user').value.trim(), password: $('pw').value });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { $('loginErr').textContent = d.error || '登录失败'; return; }
+    $('pw').value = '';
+    showApp(d.me);
+  } catch (e) { $('loginErr').textContent = e.message; }
+  finally { $('loginBtn').disabled = false; }
+}
+
+$('regBtn').onclick = doRegister;
+async function doRegister() {
+  $('loginErr').textContent = '';
+  $('regBtn').disabled = true;
+  try {
+    const body = { username: $('rUser').value.trim(), password: $('rPw').value };
+    if (!$('rInviteWrap').classList.contains('hidden')) body.invite = $('rInvite').value.trim();
+    const r = await fetch('/vl/api/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { $('loginErr').textContent = d.error || '注册失败'; return; }
+    toast('注册成功，请登录', 'ok');
+    $('user').value = body.username;
+    $('regForm').classList.add('hidden'); $('loginForm').classList.remove('hidden');
+    $('rPw').value = ''; $('pw').focus();
+  } catch (e) { $('loginErr').textContent = e.message; }
+  finally { $('regBtn').disabled = false; }
+}
+
+$('logoutBtn').onclick = async () => { await jpost('/vl/api/logout'); ME = null; showLogin(); };
+$('refreshBtn').onclick = refresh;
+
+/* ══════════ 概览 ══════════ */
+let BASE_URL = '', MODEL = 'qwen3-vl', MAXDEV = 0;
+async function refresh() {
+  try {
+    const r = await api('/vl/api/overview');
+    if (!r.ok) return;
+    const o = await r.json();
+    BASE_URL = o.baseUrl; MODEL = o.model || MODEL; MAXDEV = o.maxDevicesPerAccount || 0;
+    if (o.me) { ME = o.me; $('mePill').textContent = ME.role === 'owner' ? `管理员 · ${ME.username}` : ME.username; }
+    $('accountsCard').classList.toggle('hidden', !(ME && ME.role === 'owner'));
+    $('baseUrl').textContent = o.baseUrl;
+    $('modelName').textContent = o.model;
+    $('sKeys').textContent = fmt(o.keys.active) + (o.keys.revoked ? ` / ${o.keys.total}` : '');
+    $('sReq').textContent = fmt(o.totals.requests);
+    $('sIn').textContent = fmt(o.totals.promptTokens);
+    $('sOut').textContent = fmt(o.totals.completionTokens);
+
+    const up = $('upPill');
+    up.className = 'pill ' + (o.upstream.healthy ? 'on' : 'off');
+    $('upTxt').textContent = o.upstream.total === 0 ? '暂无设备'
+      : (o.upstream.healthy
+        ? `在线 ${o.upstream.online}/${o.upstream.total}${o.upstream.models.length ? ' · ' + o.upstream.models.join(',') : ''}`
+        : '全部离线（隧道或模型未运行）');
+
+    $('curlSample').textContent =
+`curl ${o.baseUrl}/chat/completions \\
+  -H "Authorization: Bearer <你的 API key>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"${o.model}","messages":[{"role":"user","content":"你好"}],"max_tokens":1200}'`;
+    renderDevices(o.devices || []);
+    loadKeys();
+    if (ME && ME.role === 'owner') loadAccounts();
+  } catch (e) { /* 401 已由 api() 处理 */ }
+}
+
+/* ══════════ 设备 ══════════ */
+function renderDevices(devices) {
+  const tb = $('devRows'); tb.innerHTML = '';
+  $('devEmpty').classList.toggle('hidden', devices.length > 0);
+  const sel = $('kDevice'); const prev = sel.value;
+  sel.innerHTML = '';
+  devices.filter((d) => !d.revoked).forEach((d) => {
+    const o = document.createElement('option'); o.value = d.id; o.textContent = d.name; sel.appendChild(o);
+  });
+  if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+
+  const zombies = devices.filter((d) => d.stale);
+  $('devHint').textContent = devices.length
+    ? `${devices.length}${MAXDEV ? ' / ' + MAXDEV : ''} 台设备` + (zombies.length ? `，其中 ${zombies.length} 台疑似僵尸` : '')
+    : '先添加设备，才能创建 key';
+  const czb = $('cleanZombieBtn');
+  czb.classList.toggle('hidden', zombies.length === 0);
+  if (zombies.length) czb.textContent = `清理 ${zombies.length} 台疑似僵尸`;
+
+  devices.forEach((d) => {
+    const st = d.revoked ? '已下线' : (d.online ? '在线' : '离线');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:500">${esc(d.name)}</td>
+      <td><span class="pill ${d.online && !d.revoked ? 'on' : 'off'}" style="padding:1px 9px"><span class="dot"></span>${st}</span>${
+        d.stale ? '<span class="hint" style="margin-left:6px" title="长期离线，通常是重装系统或删掉本机密钥后留下的残留。确认不再使用后可删除，释放隧道端口。">疑似僵尸</span>' : ''}</td>
+      <td class="hint">${d.models && d.models.length ? esc(d.models.join(', ')) : '—'}</td>
+      <td class="num mono" style="font-size:12px">${d.tunnelPort}</td>
+      <td class="hint">${d.lastSeenAt ? fmtTime(d.lastSeenAt) : `从未上线 · 建于 ${fmtTime(d.createdAt)}`}</td>
+      <td><div class="acts"></div></td>`;
+    const acts = tr.querySelector('.acts');
+    const mk = (text, cls, fn) => { const b = document.createElement('button'); b.className = 'tiny ' + (cls || ''); b.textContent = text; b.onclick = fn; acts.appendChild(b); };
+    mk('重命名', '', async () => { const n = prompt('新名称', d.name); if (!n) return; await jpost(`/vl/api/devices/${d.id}/rename`, { name: n }); refresh(); });
+    if (d.revoked) mk('恢复', '', async () => { await jpost(`/vl/api/devices/${d.id}/restore`); refresh(); });
+    else mk('下线', 'danger', async () => { if (!confirm('下线后该设备隧道立即失效，确定？')) return; await jpost(`/vl/api/devices/${d.id}/revoke`); refresh(); });
+    mk('删除', 'danger', async () => { if (!confirm('删除设备？其绑定的 key 将不可用。')) return; await jpost(`/vl/api/devices/${d.id}/delete`); refresh(); });
+    tb.appendChild(tr);
+  });
+}
+
+/* 清理疑似僵尸设备（长期离线，通常是重装/丢密钥留下的残留，白占隧道端口） */
+$('cleanZombieBtn').onclick = async () => {
+  const r = await api('/vl/api/devices'); if (!r.ok) return;
+  const { devices } = await r.json().catch(() => ({ devices: [] }));
+  const zombies = (devices || []).filter((d) => d.stale);
+  if (!zombies.length) { toast('没有疑似僵尸设备', 'ok'); refresh(); return; }
+  const list = zombies.map((d) => `· ${d.name}（端口 ${d.tunnelPort}）`).join('\n');
+  if (!confirm(`删除以下 ${zombies.length} 台长期离线的设备？\n\n${list}\n\n绑定了这些设备的 API key 将变为不可用。`)) return;
+  let done = 0;
+  for (const d of zombies) {
+    const rr = await jpost(`/vl/api/devices/${d.id}/delete`);
+    if (rr.ok) done += 1;
+  }
+  toast(`已清理 ${done} 台设备`, 'ok');
+  refresh();
+};
+
+/* 添加设备：生成配对码后轮询，对方跑完命令即自动显示「在线」 */
+let pairPoll = null;
+let pairBaseline = new Set();
+function stopPairPoll() { if (pairPoll) { clearInterval(pairPoll); pairPoll = null; } }
+async function checkPair() {
+  const r = await api('/vl/api/devices'); if (!r.ok) return;
+  const { devices } = await r.json().catch(() => ({ devices: [] }));
+  const neu = devices.find((x) => !pairBaseline.has(x.id));
+  if (!neu) return;
+  if (neu.online) {
+    $('pairNote').textContent = `✅ ${neu.name} 已上线（隧道端口 ${neu.tunnelPort}）`;
+    stopPairPoll();
+    refresh();
+  } else {
+    $('pairNote').textContent = `已注册「${neu.name}」，等待隧道建立…`;
+  }
+}
+function closePairModal() { stopPairPoll(); $('pairModal').classList.add('hidden'); refresh(); }
+
+$('addDeviceBtn').onclick = async () => {
+  const r = await jpost('/vl/api/devices/pair/start');
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(d.error || '生成配对码失败', 'err'); return; }
+  $('pairCmd').textContent = d.command;
+  $('pairTtl').textContent = `${Math.max(1, Math.round((d.expiresAt - Date.now()) / 60000))} 分钟内有效`;
+  $('pairNote').textContent = '等待对方执行…（会自动检测上线）';
+  $('pairModal').classList.remove('hidden');
+  try {
+    const dr = await api('/vl/api/devices');
+    const dd = await dr.json().catch(() => ({ devices: [] }));
+    pairBaseline = new Set((dd.devices || []).map((x) => x.id));
+  } catch { pairBaseline = new Set(); }
+  stopPairPoll();
+  pairPoll = setInterval(checkPair, 3000);
+};
+$('pairCopy').onclick = () => copyText($('pairCmd').textContent);
+$('pairClose').onclick = closePairModal;
+$('pairModal').onclick = (e) => { if (e.target.id === 'pairModal') closePairModal(); };
+
+/* ══════════ 账号（owner） ══════════ */
+async function loadAccounts() {
+  const r = await api('/vl/api/accounts'); if (!r.ok) return;
+  const { accounts } = await r.json();
+  const tb = $('acctRows'); tb.innerHTML = '';
+  $('acctEmpty').classList.toggle('hidden', accounts.length > 0);
+  accounts.forEach((a) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:500">${esc(a.username)}</td>
+      <td class="hint">${esc(a.role)}</td>
+      <td><span class="tag ${a.disabled ? 'revoked' : 'active'}">${a.disabled ? '已停用' : '启用'}</span></td>
+      <td class="num">${fmt(a.devices)}</td><td class="num">${fmt(a.keys)}</td>
+      <td><div class="acts"></div></td>`;
+    const acts = tr.querySelector('.acts');
+    const mk = (text, cls, fn) => { const b = document.createElement('button'); b.className = 'tiny ' + (cls || ''); b.textContent = text; b.onclick = fn; acts.appendChild(b); };
+    if (a.disabled) mk('启用', '', async () => { await jpost(`/vl/api/accounts/${a.id}/enable`); loadAccounts(); });
+    else mk('停用', 'danger', async () => { if (!confirm(`停用 ${a.username}？其所有 key 立即失效。`)) return; await jpost(`/vl/api/accounts/${a.id}/disable`); loadAccounts(); });
+    mk('删除', 'danger', async () => { if (!confirm(`删除 ${a.username}？其设备与 key 一并移除。`)) return; await jpost(`/vl/api/accounts/${a.id}/delete`); loadAccounts(); });
+    tb.appendChild(tr);
+  });
+}
+
+/* ══════════ Key 列表 ══════════ */
+async function loadKeys() {
+  const r = await api('/vl/api/keys');
+  if (!r.ok) return;
+  const { keys } = await r.json();
+  const tb = $('keyRows');
+  tb.innerHTML = '';
+  $('keyEmpty').classList.toggle('hidden', keys.length > 0);
+  const label = { active: '有效', revoked: '已吊销', expired: '已过期' };
+  keys.forEach((k) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><div style="font-weight:500">${esc(k.label)}</div>
+          <div class="hint">建于 ${fmtTime(k.createdAt)}${k.expiresAt ? ' · 到期 ' + fmtTime(k.expiresAt) : ''}</div>
+          <div class="hint" style="color:var(--acc)">${quotaText(k)}</div></td>
+      <td class="mono" style="font-size:12px">${esc(k.masked)}</td>
+      <td class="hint">${k.deviceName ? esc(k.deviceName) : '<span style="color:var(--err)">未绑定</span>'}</td>
+      <td><span class="tag ${k.status}">${label[k.status] || k.status}</span></td>
+      <td class="hint">${fmtTime(k.lastUsedAt)}</td>
+      <td class="num">${fmt(k.requests)}</td>
+      <td class="num" style="color:${k.errors ? 'var(--err)' : 'inherit'}">${fmt(k.errors)}</td>
+      <td class="num">${fmt(k.promptTokens)}</td>
+      <td class="num">${fmt(k.completionTokens)}</td>
+      <td><div class="acts"></div></td>`;
+    const acts = tr.querySelector('.acts');
+    const mk = (text, cls, fn, title) => {
+      const b = document.createElement('button');
+      b.className = 'tiny ' + (cls || ''); b.textContent = text; b.title = title || ''; b.onclick = fn;
+      acts.appendChild(b);
+    };
+    mk('配额', '', () => openQuota(k), '设置每日请求 / token 上限');
+    mk('轮换', '', () => act(k.id, 'rotate', true), '生成新 key，旧 key 立即失效');
+    if (k.status === 'active') mk('吊销', 'danger', () => act(k.id, 'revoke'));
+    else mk('恢复', '', () => act(k.id, 'restore'));
+    mk('删除', 'danger', () => act(k.id, 'delete'), '连同统计数据一起删除');
+    tb.appendChild(tr);
+  });
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function quotaText(k) {
+  const q = k.quota || {}, t = k.today || { requests: 0, tokens: 0 };
+  if (!q.maxRequestsPerDay && !q.maxTokensPerDay) return '配额：不限';
+  const p = [];
+  if (q.maxRequestsPerDay) p.push(`请求 ${fmt(t.requests)}/${fmt(q.maxRequestsPerDay)}`);
+  if (q.maxTokensPerDay) p.push(`token ${fmt(t.tokens)}/${fmt(q.maxTokensPerDay)}`);
+  return '今日 ' + p.join(' · ');
+}
+
+/* ══════════ 配额弹窗 ══════════ */
+let quotaKeyId = null;
+function openQuota(k) {
+  quotaKeyId = k.id;
+  $('qReq').value = (k.quota && k.quota.maxRequestsPerDay) || '';
+  $('qTok').value = (k.quota && k.quota.maxTokensPerDay) || '';
+  const t = k.today || { requests: 0, tokens: 0 };
+  $('quotaToday').textContent = `今日已用：${fmt(t.requests)} 次请求 · ${fmt(t.tokens)} token`;
+  $('quotaModal').classList.remove('hidden');
+}
+$('qCancel').onclick = () => $('quotaModal').classList.add('hidden');
+$('quotaModal').onclick = (e) => { if (e.target.id === 'quotaModal') $('quotaModal').classList.add('hidden'); };
+$('qSave').onclick = async () => {
+  const r = await jpost(`/vl/api/keys/${quotaKeyId}/quota`, {
+    maxRequestsPerDay: Number($('qReq').value) || 0,
+    maxTokensPerDay: Number($('qTok').value) || 0,
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(d.error || '保存失败', 'err'); return; }
+  $('quotaModal').classList.add('hidden');
+  toast('配额已保存', 'ok');
+  loadKeys();
+};
+
+async function act(id, action, reveal) {
+  if (action === 'delete' && !confirm('确定删除这个 key？统计数据也会一起删除，不可恢复。')) return;
+  if (action === 'revoke' && !confirm('吊销后该 key 立即失效，确定？')) return;
+  const r = await jpost(`/vl/api/keys/${id}/${action}`);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(d.error || '操作失败', 'err'); return; }
+  if (reveal && d.key && d.key.plaintext) showKeyModal(d.key.plaintext, action === 'rotate' ? 'Key 已轮换' : '新建 API Key');
+  else toast('已' + ({ revoke: '吊销', restore: '恢复', delete: '删除' }[action] || action), 'ok');
+  refresh();
+}
+
+$('createBtn').onclick = async () => {
+  const days = $('kDays').value.trim();
+  const r = await jpost('/vl/api/keys', {
+    label: $('kLabel').value,
+    deviceId: $('kDevice').value || undefined,
+    expiresInDays: days ? Number(days) : 0,
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(d.error || '创建失败', 'err'); return; }
+  $('kLabel').value = ''; $('kDays').value = '';
+  showKeyModal(d.key.plaintext, '新建 API Key');
+  refresh();
+};
+
+function showKeyModal(key, title) {
+  $('mTitle').textContent = title;
+  $('mKey').textContent = key;
+  $('modal').classList.remove('hidden');
+}
+$('mClose').onclick = () => $('modal').classList.add('hidden');
+$('mCopy').onclick = () => copyText($('mKey').textContent);
+$('modal').onclick = (e) => { if (e.target.id === 'modal') $('modal').classList.add('hidden'); };
+
+document.querySelectorAll('[data-copy]').forEach((b) => {
+  b.onclick = () => copyText($(b.dataset.copy).textContent);
+});
+
+/* ══════════ 修改密码 ══════════ */
+$('pwBtn').onclick = async () => {
+  const r = await jpost('/vl/api/password', { current: $('pwCur').value, next: $('pwNew').value });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(d.error || '修改失败', 'err'); return; }
+  $('pwCur').value = ''; $('pwNew').value = '';
+  toast('密码已修改', 'ok');
+};
+
+/* ══════════ 测试台 ══════════ */
+let history = [];       // OpenAI 格式的对话历史
+let pending = [];       // 待发送的图片 dataURL
+let busy = false;
+
+$('pickImg').onclick = () => $('fileInput').click();
+$('fileInput').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
+$('chatInput').addEventListener('paste', (e) => {
+  const items = [...(e.clipboardData?.items || [])].filter((i) => i.type.startsWith('image/'));
+  if (items.length) { e.preventDefault(); addFiles(items.map((i) => i.getAsFile()).filter(Boolean)); }
+});
+
+function addFiles(files) {
+  [...files].forEach((f) => {
+    if (!f || !f.type.startsWith('image/')) return;
+    if (f.size > 12 * 1024 * 1024) { toast(`${f.name || '图片'} 超过 12MB，已跳过`, 'err'); return; }
+    const fr = new FileReader();
+    fr.onload = () => { pending.push(fr.result); renderAtt(); };
+    fr.readAsDataURL(f);
+  });
+}
+function renderAtt() {
+  const box = $('attachments');
+  box.innerHTML = '';
+  pending.forEach((src, i) => {
+    const d = document.createElement('div');
+    d.className = 'att';
+    d.innerHTML = `<img src="${src}"><div class="x">×</div>`;
+    d.querySelector('.x').onclick = () => { pending.splice(i, 1); renderAtt(); };
+    box.appendChild(d);
+  });
+}
+
+$('clearChat').onclick = () => { history = []; pending = []; renderAtt(); renderChat(); };
+$('chatInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); }
+});
+
+function renderChat() {
+  const w = $('chatWrap');
+  w.innerHTML = '';
+  history.forEach((m) => w.appendChild(bubble(m)));
+  w.scrollTop = w.scrollHeight;
+}
+
+function contentText(c) {
+  if (typeof c === 'string') return c;
+  if (Array.isArray(c)) return c.filter((p) => p && p.type === 'text').map((p) => p.text || '').join('\n');
+  return '';
+}
+function contentImages(c) {
+  if (Array.isArray(c)) return c.filter((p) => p && p.type === 'image_url').map((p) => p.image_url.url);
+  return [];
+}
+
+function bubble(m) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + (m.role === 'user' ? 'me' : 'ai') + (m.error ? ' err' : '');
+  const who = document.createElement('div');
+  who.className = 'who';
+  who.textContent = m.role === 'user' ? '你' : 'V L M';
+  const body = document.createElement('div');
+  body.className = 'body';
+
+  const imgs = m.images || contentImages(m.content);
+  if (imgs.length) {
+    const g = document.createElement('div');
+    g.className = 'imgs';
+    imgs.forEach((s) => { const i = document.createElement('img'); i.src = s; g.appendChild(i); });
+    body.appendChild(g);
+  }
+  if (m.reasoning) {
+    const t = document.createElement('div');
+    t.className = 'think';
+    t.textContent = m.reasoning;
+    body.appendChild(t);
+  }
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  if (m.streaming) b.innerHTML = '<span class="hint">正在生成…</span>';
+  else b.textContent = contentText(m.content) || (m.role === 'assistant' ? '（空回复）' : '');
+  body.appendChild(b);
+  el.appendChild(who); el.appendChild(body);
+  el._bubble = b;
+  return el;
+}
+
+async function send() {
+  if (busy) return;
+  const text = $('chatInput').value.trim();
+  if (!text && !pending.length) return;
+
+  let content;
+  if (pending.length) {
+    content = pending.map((src) => ({ type: 'image_url', image_url: { url: src } }));
+    content.push({ type: 'text', text: text || '描述这张图片' });
+  } else {
+    content = text;
+  }
+
+  history.push({ role: 'user', content });
+  pending = [];
+  renderAtt();
+  $('chatInput').value = '';
+  renderChat();
+
+  const aiView = { role: 'assistant', content: '', reasoning: '', streaming: true };
+  const w = $('chatWrap');
+  const live = bubble(aiView);
+  w.appendChild(live);
+  w.scrollTop = w.scrollHeight;
+
+  busy = true; $('sendBtn').disabled = true;
+  $('chatHint').textContent = '生成中…';
+  const stream = $('streamChk').checked;
+  let usage = null;
+
+  try {
+    const payload = {
+      model: 'qwen3-vl',
+      messages: history,
+      max_tokens: Number($('maxTok').value) || 1200,
+      stream,
+    };
+    const r = await api('/vl/api/play', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error((d.error && d.error.message) || d.error || ('HTTP ' + r.status));
+    }
+    if (stream) {
+      usage = await readStream(r, live, aiView);
+    } else {
+      const d = await r.json();
+      const m = (d.choices && d.choices[0] && d.choices[0].message) || {};
+      aiView.reasoning = m.reasoning_content || m.reasoning || '';
+      aiView.content = m.content || '';
+      usage = d.usage || null;
+    }
+    aiView.streaming = false;
+  } catch (e) {
+    aiView.streaming = false;
+    aiView.error = true;
+    aiView.content = '❌ ' + e.message;
+  } finally {
+    busy = false; $('sendBtn').disabled = false;
+    $('chatHint').textContent = usage ? ('in ' + usage.prompt_tokens + ' / out ' + usage.completion_tokens + ' tok') : '';
+    if (aiView.error) {
+      renderChat();
+      $('chatWrap').appendChild(bubble(aiView));
+      $('chatWrap').scrollTop = $('chatWrap').scrollHeight;
+    } else {
+      history.push({ role: 'assistant', content: aiView.content });
+      renderChat();
+    }
+    refresh();
+  }
+}
+
+/** 读取 SSE 流，边收边画；返回最终的 usage */
+async function readStream(res, node, aiView) {
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  const bubbleEl = node._bubble;
+  let buf = '';
+  let acc = '';
+  let think = '';
+  let usage = null;
+
+  const paint = () => {
+    if (think) {
+      let t = node.querySelector('.think');
+      if (!t) {
+        t = document.createElement('div');
+        t.className = 'think';
+        node.querySelector('.body').insertBefore(t, bubbleEl);
+      }
+      t.textContent = think;
+    }
+    bubbleEl.textContent = acc || '…';
+    const w = $('chatWrap');
+    w.scrollTop = w.scrollHeight;
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      const s = line.trim();
+      if (!s.startsWith('data:')) continue;
+      const data = s.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      let j;
+      try { j = JSON.parse(data); } catch { continue; }
+      if (j.usage) usage = j.usage;
+      const d = j.choices && j.choices[0] && j.choices[0].delta;
+      if (!d) continue;
+      if (d.reasoning) think += d.reasoning;
+      if (d.content) acc += d.content;
+      paint();
+    }
+  }
+  aiView.reasoning = think;
+  aiView.content = acc;
+  aiView.streaming = false;
+  return usage;
+}
+
+/* ══════════ 自动刷新（弹窗 / 生成中 / 后台标签时不打扰） ══════════ */
+const anyModalOpen = () => ['modal', 'pairModal', 'quotaModal'].some((id) => {
+  const el = $(id);
+  return el && !el.classList.contains('hidden');
+});
+setInterval(() => {
+  if (document.hidden) return;
+  if (busy) return;
+  if (!$('app') || $('app').classList.contains('hidden')) return;
+  if (anyModalOpen()) return;
+  refresh();
+}, 15000);
+// 从后台切回前台时立刻刷新一次
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && !busy && !anyModalOpen() && $('app') && !$('app').classList.contains('hidden')) refresh();
+});
+
+/* ══════════ 启动 ══════════ */
+(async () => {
+  try {
+    const r = await fetch('/vl/api/session', { credentials: 'same-origin' });
+    const d = await r.json().catch(() => ({}));
+    // 未开放注册时隐藏注册入口；需要邀请码时展示邀请码输入框
+    if (d.registerEnabled === false) $('toRegister').classList.add('hidden');
+    $('rInviteWrap').classList.toggle('hidden', !d.inviteRequired);
+    if (r.ok) showApp(d.me); else showLogin();
+  } catch { showLogin(); }
+})();
+</script>
+</body>
+</html>
