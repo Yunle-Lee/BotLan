@@ -12,7 +12,7 @@ using Microsoft.Web.WebView2.Wpf;
 internal static class StartupChecks
 {
     private const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
-    public static int Run(App app, string output, bool checkIdle = false)
+    public static int Run(App app, string output, bool checkIdle = false, bool prewarm = false)
     {
         Environment.SetEnvironmentVariable("ISLANDUI_TEST_DATA_DIR", Path.Combine(output, "data"));
         Environment.SetEnvironmentVariable("TASK_WORKER_ENABLED", "false");
@@ -32,6 +32,15 @@ internal static class StartupChecks
                 AgentStore.Instance.Bots.Add(bot);
                 runtime = runtimeType.GetProperty("Shared")!.GetValue(null)!;
                 int? firstBackend = null;
+                if (prewarm)
+                {
+                    // What App.OnStartup does once the island is idle; the user opens Chat later.
+                    var warm = Stopwatch.StartNew();
+                    runtimeType.GetProperty("KeepWarm")!.SetValue(runtime, true);
+                    await (Task)runtimeType.GetMethod("PrewarmAsync")!.Invoke(runtime, null)!;
+                    Console.WriteLine($"PREWARM done in {warm.ElapsedMilliseconds} ms (app startup, before any Chat open)");
+                    timings.Add(new { prewarmMs = warm.ElapsedMilliseconds });
+                }
                 for (int pass = 0; pass < (checkIdle ? 4 : 3); pass++)
                 {
                     var clock = Stopwatch.StartNew();
@@ -64,6 +73,11 @@ internal static class StartupChecks
                     timings.Add(new { pass, readyMs = clock.ElapsedMilliseconds, backendId = backend?.Id, phases });
                     Console.WriteLine($"READY pass={pass} ms={clock.ElapsedMilliseconds} backend={backend?.Id}");
                     Console.WriteLine("PHASES " + JsonSerializer.Serialize(phases));
+                    var timeline = (List<(string Phase, long Ms)>)typeof(ChatWindow).GetField("StudioTimeline", Private)!.GetValue(window)!;
+                    // page-ready can trail the composer check by a frame; give it a moment.
+                    for (int i = 0; i < 40 && !timeline.Any(t => t.Phase == "page-ready"); i++) await Task.Delay(25);
+                    Console.WriteLine("TIMELINE " + string.Join("  ", timeline.Select(t => $"{t.Phase}={t.Ms}")));
+                    Console.WriteLine($"SKELETON visible={((FrameworkElement)window.FindName("StudioLoading")).Visibility} opacity={((FrameworkElement)window.FindName("StudioLoading")).Opacity:0.00}");
                     Console.WriteLine("PAGE_TIMING " + await view!.CoreWebView2.ExecuteScriptAsync(
                         "JSON.stringify({navigation:performance.getEntriesByType('navigation').map(e=>({dom:e.domContentLoadedEventEnd,load:e.loadEventEnd})),resources:performance.getEntriesByType('resource').map(e=>({path:new URL(e.name).pathname,start:Math.round(e.startTime),duration:Math.round(e.duration)}))})"));
                     window.Close(); window = null;

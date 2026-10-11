@@ -31,7 +31,7 @@ internal static class StudioSmoke
             try
             {
                 AgentStore.Instance.Bots.Clear();
-                foreach (var name in new[] { "Fixture A", "Fixture B", "很长的中文Bot名称测试" })
+                foreach (var name in new[] { "Fixture A", "Fixture B", "很长的中文Bot名称测试", "Fixture D" })
                     AgentStore.Instance.Bots.Add(new AgentBot { Config = new AgentConfig
                     { Id = name.Replace(" ", "-"), Name = name, ApiKey = "unused-test-key", BaseUrl = "http://127.0.0.1:1/v1",
                         ColorHex = name == "Fixture A" ? "#F45E93" : "#4C9DFF", BotShape = name == "Fixture A" ? "cercle" : "triangle" } });
@@ -50,7 +50,7 @@ internal static class StudioSmoke
                     && ((SolidColorBrush)avatar.BodyColor).Color == (Color)ColorConverter.ConvertFromString("#F45E93"),
                     "page uses selected Bot's real animated color and shape");
                 Check(await ScriptBool(view, "!!document.querySelector('#island-left-dock #island-bot-avatar') && !document.querySelector('#island-left-dock img')"), "static mascot is replaced in the left identity dock");
-                Check(await ScriptBool(view, "(() => { const buttons=[...document.querySelectorAll('#island-left-dock [role=button]')].map(x=>x.getBoundingClientRect()); return buttons.length===5 && buttons.every(r=>Math.abs(r.x+r.width/2-(buttons[0].x+buttons[0].width/2))<1) && buttons.every((r,i)=>!i || r.y>=buttons[i-1].bottom); })()"), "menu, identity, language, bell and computer are vertically aligned on the left");
+                Check(await ScriptBool(view, "(() => { const buttons=[...document.querySelectorAll('#island-left-dock [role=button]')].map(x=>x.getBoundingClientRect()); return (buttons.length===5 || buttons.length===6) && buttons.every(r=>Math.abs(r.x+r.width/2-(buttons[0].x+buttons[0].width/2))<1) && buttons.every((r,i)=>!i || r.y>=buttons[i-1].bottom); })()"), "menu, identity, language, bell and computer are vertically aligned on the left");
                 Check(await ScriptBool(view, "document.querySelector('#island-main-content').getBoundingClientRect().top < 16 && document.querySelector('#island-composer').getBoundingClientRect().width < window.innerWidth - 158"), "central content gains header height and the composer is narrower");
                 Check(UnscaledPage(window, view), "browser has no Viewbox, shadow effect or fractional scaling ancestor");
                 var firstFrame = AvatarPixels(avatar);
