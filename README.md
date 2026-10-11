@@ -267,10 +267,10 @@ Spark 端的代码、安装方式和全部实测数据在 [BotLan-CLI](https://g
 1. **在 DGX Spark 上安装（约 10 分钟）**：
 
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/Yunle-Lee/BotLan-CLI/main/install.sh | sh
+   curl -fsSL https://modelscope.cn/models/Karoli/BotLan-CLI/resolve/master/install.sh | sh
    ```
 
-   它会检查机器、从 ModelScope 下载编译好的运行程序和模型（不用编译）、启动网关，然后打开配置向导：给第一个 Bot 起名、在方块图上拉框选活动范围、选模型后端、分配内存和 CPU。详见 [BotLan-CLI](https://github.com/Yunle-Lee/BotLan-CLI)。没有网络时可以插 BotLan U 盘离线安装。
+   它会检查机器、从 ModelScope 下载代码、编译好的运行程序和模型（不用编译，也不依赖 GitHub；GitHub 上有同一个脚本）、启动网关，然后打开配置向导：给第一个 Bot 起名、在方块图上拉框选活动范围、选模型后端、分配内存和 CPU。详见 [BotLan-CLI](https://github.com/Yunle-Lee/BotLan-CLI)。没有网络时可以插 BotLan U 盘离线安装。
 2. **在 Windows 上安装 BotLan**：从 [Releases](https://github.com/Yunle-Lee/BotLan/releases/latest) 下载安装包。
 3. **连接**：托盘菜单「连接 DGX Spark…」（Long Island 没有 Bot 时胶囊里也有这个入口）→ 填 `用户名@Spark地址` 和端口 → 第一次输一次密码。BotLan 会在 Spark 上授权本机密钥（之后免密）、记住主机指纹、建立并维持隧道，并把向导里建好的 Bot 自动加进来。
 4. **让 Bot 干活**：点右上角滑轨上的 Bot 进入 Chat，比如说「检查一下 Spark 的 GPU」，在弹出的卡片里批准命令。
@@ -439,7 +439,7 @@ docs/                交付说明、审查记录与源码校验清单
 
 **BotLan** is a Windows desktop "dynamic island" agent client for the NVIDIA DGX Spark Hackathon (finalist). One DGX Spark hosts many Bots; you switch between them on a curved rail at the corner of the Chat window.
 
-**On the Spark** ([BotLan-CLI](https://github.com/Yunle-Lee/BotLan-CLI)): one command (`curl -fsSL https://raw.githubusercontent.com/Yunle-Lee/BotLan-CLI/main/install.sh | sh`) installs a prebuilt CUDA sm_121 llama.cpp and two models from ModelScope: Jev-Style-0.8B, a discriminative router that never generates (~28 ms), and StepFun GELab-Zero-4B, a vision-language model (~76 tok/s measured). Both stay resident in GB10's unified memory. The BotLan gateway routes each request to a skill with Jev, lets the 4B call `run_spark_command`, and runs a command only after the user approves it in BotLan. Each Bot is a zone: a systemd slice (memory, CPU, tasks) plus Landlock file scope.
+**On the Spark** ([BotLan-CLI](https://github.com/Yunle-Lee/BotLan-CLI)): one command (`curl -fsSL https://modelscope.cn/models/Karoli/BotLan-CLI/resolve/master/install.sh | sh`) installs a prebuilt CUDA sm_121 llama.cpp and two models from ModelScope: Jev-Style-0.8B, a discriminative router that never generates (~28 ms), and StepFun GELab-Zero-4B, a vision-language model (~76 tok/s measured). Both stay resident in GB10's unified memory. The BotLan gateway routes each request to a skill with Jev, lets the 4B call `run_spark_command`, and runs a command only after the user approves it in BotLan. Each Bot is a zone: a systemd slice (memory, CPU, tasks) plus Landlock file scope.
 
 **On the laptop**: "Connect DGX Spark" logs in over SSH once, installs its own key (stored with DPAPI), pins the host key and keeps the tunnel up. Chat shows a step-by-step workflow timeline, per-reply speed and context usage, approval cards, image and file attachments, and web tools with SSRF protection.
 
