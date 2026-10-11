@@ -1,9 +1,12 @@
-import { ArrowUpRight, Check, ChevronRight, type LucideIcon, X } from "lucide-react-native";
-import type { ReactNode } from "react";
+import { ArrowUpRight, Check, ChevronRight, Copy, type LucideIcon, X } from "lucide-react-native";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Animated,
   Image,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -112,6 +115,53 @@ export const s = StyleSheet.create({
     borderColor: colors.line,
   },
 });
+/** Native driver where it exists; react-native-web animates in JS. */
+const nativeDriver = Platform.OS !== "web";
+
+/** True when the OS asks for less motion; animations then jump straight to their end state. */
+export function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    let live = true;
+    AccessibilityInfo.isReduceMotionEnabled?.().then((v) => live && setReduced(v), () => {});
+    const sub = AccessibilityInfo.addEventListener?.("reduceMotionChanged", setReduced);
+    return () => {
+      live = false;
+      sub?.remove?.();
+    };
+  }, []);
+  return reduced;
+}
+
+/** Spring scale for a pressable: dips on press-in, springs back with a little overshoot. */
+export function usePressSpring(depth = 0.95) {
+  const reduced = useReducedMotion();
+  const scale = useRef(new Animated.Value(1)).current;
+  const to = (value: number, bounciness: number) => {
+    if (reduced) scale.setValue(1);
+    else Animated.spring(scale, { toValue: value, speed: 40, bounciness, useNativeDriver: nativeDriver }).start();
+  };
+  return {
+    scale,
+    onPressIn: () => to(depth, 0),
+    onPressOut: () => to(1, 12),
+  };
+}
+
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "icon";
+
+const variantStyles: Record<ButtonVariant, { bg: string; hover: string; fg: string }> = {
+  primary: { bg: colors.blue, hover: "#B4DCFB", fg: colors.text },
+  secondary: { bg: "#F1F2F3", hover: "#E6E8EA", fg: colors.text },
+  ghost: { bg: "transparent", hover: colors.line, fg: colors.text },
+  danger: { bg: "#FBEFED", hover: "#F6DEDA", fg: colors.danger },
+  icon: { bg: "transparent", hover: colors.line, fg: colors.muted },
+};
+
+/**
+ * Pressable button with a spring press (scale dips, then springs back) and hover tint on web.
+ * `primary` / `danger` keep working; `variant` picks primary | secondary | ghost | danger | icon.
+ */
 export function Button({
   children,
   onPress,
@@ -121,9 +171,12 @@ export function Button({
   busy,
   small,
   danger,
+  variant,
+  accessibilityLabel,
+  color,
   style,
 }: {
-  children: ReactNode;
+  children?: ReactNode;
   onPress: () => void;
   icon?: LucideIcon;
   primary?: boolean;
@@ -131,31 +184,146 @@ export function Button({
   busy?: boolean;
   small?: boolean;
   danger?: boolean;
+  variant?: ButtonVariant;
+  accessibilityLabel?: string;
+  /** Overrides the variant's text / icon color. */
+  color?: string;
   style?: ViewStyle;
 }) {
-  const color = danger ? colors.danger : colors.text;
+  const kind: ButtonVariant = variant ?? (danger ? "danger" : primary ? "primary" : "secondary");
+  const v = color ? { ...variantStyles[kind], fg: color } : variantStyles[kind];
+  const press = usePressSpring(kind === "icon" ? 0.86 : 0.96);
+  const [hovered, setHovered] = useState(false);
+  const off = !!(disabled || busy);
+  const iconOnly = kind === "icon" || children == null;
+  const size = small ? 30 : 36;
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={disabled || busy}
-      accessibilityState={{ disabled: !!(disabled || busy), busy: !!busy }}
+      accessibilityLabel={accessibilityLabel}
+      disabled={off}
+      accessibilityState={{ disabled: off, busy: !!busy }}
       onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       style={({ pressed }) => [
         s.button,
-        primary ? s.primary : s.secondary,
+        { backgroundColor: (pressed || hovered) && !off ? v.hover : v.bg },
         small && { minHeight: 38, paddingVertical: 7, paddingHorizontal: 13 },
-        (disabled || busy) && { opacity: 0.5 },
-        pressed && { transform: [{ scale: 0.98 }] },
+        iconOnly && {
+          width: size, height: size, minHeight: size, paddingHorizontal: 0, paddingVertical: 0, borderRadius: size / 2,
+        },
+        off && { opacity: 0.5 },
         style,
       ]}
     >
-      {busy ? (
-        <ActivityIndicator color={color} size="small" />
-      ) : Icon ? (
-        <Icon size={15} color={color} />
-      ) : null}
-      <Text style={[s.buttonText, { color }]}>{children}</Text>
+      <Animated.View
+        style={{ flexDirection: "row", alignItems: "center", gap: 8, transform: [{ scale: press.scale }] }}
+      >
+        {busy ? (
+          <ActivityIndicator color={v.fg} size="small" />
+        ) : Icon ? (
+          <Icon size={iconOnly ? (small ? 15 : 17) : 15} color={v.fg} strokeWidth={iconOnly ? 1.8 : 2} />
+        ) : null}
+        {children != null && kind !== "icon" && <Text style={[s.buttonText, { color: v.fg }]}>{children}</Text>}
+      </Animated.View>
     </Pressable>
+  );
+}
+
+/**
+ * Checkbox whose box fills with one spring while the tick wipes in left to right and the box
+ * pops (after reactbits "spring check"). With reduced motion it switches instantly.
+ */
+export function SpringCheck({ checked, size = 19 }: { checked: boolean; size?: number }) {
+  const reduced = useReducedMotion();
+  const progress = useRef(new Animated.Value(checked ? 1 : 0)).current;
+  const pop = useRef(new Animated.Value(1)).current;
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if (reduced) {
+      progress.setValue(checked ? 1 : 0);
+      return;
+    }
+    Animated.parallel([
+      Animated.spring(progress, { toValue: checked ? 1 : 0, speed: 16, bounciness: 4, useNativeDriver: false }),
+      Animated.sequence([
+        Animated.timing(pop, { toValue: 0.8, duration: 70, useNativeDriver: false }),
+        Animated.spring(pop, { toValue: 1, speed: 20, bounciness: 16, useNativeDriver: false }),
+      ]),
+    ]).start();
+  }, [checked, reduced, progress, pop]);
+  const tick = size - 6;
+  const fill = progress.interpolate({ inputRange: [0, 1], outputRange: ["#FFFFFF", colors.text] });
+  const border = progress.interpolate({ inputRange: [0, 1], outputRange: ["#C9CDD1", colors.text] });
+  const tickWidth = progress.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0, tick], extrapolate: "clamp" });
+  return (
+    <Animated.View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 5,
+        borderWidth: 1.5,
+        borderColor: border,
+        backgroundColor: fill,
+        justifyContent: "center",
+        alignItems: "flex-start",
+        paddingLeft: (size - 3 - tick) / 2,
+        transform: [{ scale: pop }],
+      }}
+    >
+      <Animated.View style={{ width: tickWidth, height: tick, overflow: "hidden" }}>
+        <Check size={tick} color="#FFF" strokeWidth={3} />
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+/** Copy text to the clipboard where the platform allows it (web / WebView2). */
+export async function copyText(text: string) {
+  const clip = typeof navigator !== "undefined" ? navigator.clipboard : undefined;
+  if (!clip?.writeText) return false;
+  try {
+    await clip.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Icon button that copies `text`, then shows a check (or a cross if the copy failed) briefly. */
+export function CopyButton({ text, label, copiedLabel, failedLabel, withText, onDark }: {
+  text: string; label: string; copiedLabel: string; failedLabel: string; withText?: boolean;
+  /** Light text for dark surfaces such as code blocks. */
+  onDark?: boolean;
+}) {
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  useEffect(() => {
+    if (state === "idle") return;
+    const id = setTimeout(() => setState("idle"), 1600);
+    return () => clearTimeout(id);
+  }, [state]);
+  const current = state === "copied" ? copiedLabel : state === "failed" ? failedLabel : label;
+  return (
+    <Button
+      variant={withText ? "ghost" : "icon"}
+      small
+      icon={state === "copied" ? Check : state === "failed" ? X : Copy}
+      color={onDark ? "#C9D3D8" : undefined}
+      accessibilityLabel={current}
+      style={withText
+        ? { minHeight: 26, paddingVertical: 3, paddingHorizontal: 8, ...(onDark ? { backgroundColor: "transparent" } : null) }
+        : undefined}
+      onPress={() => void copyText(text).then((ok) => setState(ok ? "copied" : "failed"))}
+    >
+      {withText ? <Text style={{ fontSize: 11, color: onDark ? "#C9D3D8" : colors.muted }}>{current}</Text> : undefined}
+    </Button>
   );
 }
 export function IconButton({
@@ -320,28 +488,20 @@ export function CheckRow({
   checked: boolean;
   onPress: () => void;
 }) {
+  const press = usePressSpring(0.98);
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
+      accessibilityLabel={label}
       onPress={onPress}
-      style={[s.row, { gap: 10, paddingVertical: 9 }]}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
     >
-      <View
-        style={{
-          width: 19,
-          height: 19,
-          borderRadius: 5,
-          borderWidth: 1,
-          borderColor: checked ? colors.text : colors.line,
-          backgroundColor: checked ? colors.text : "#FFF",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {checked && <Check size={13} color="#FFF" />}
-      </View>
-      <Text style={[s.text, { flex: 1 }]}>{label}</Text>
+      <Animated.View style={[s.row, { gap: 10, paddingVertical: 9, transform: [{ scale: press.scale }] }]}>
+        <SpringCheck checked={checked} />
+        <Text style={[s.text, { flex: 1 }]}>{label}</Text>
+      </Animated.View>
     </Pressable>
   );
 }

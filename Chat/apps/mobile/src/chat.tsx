@@ -21,12 +21,14 @@ import {
 import { z } from "zod";
 import { ArtifactCard } from "./agent-ui";
 import { useAgentWorkspace } from "./agent-workspace";
-import { AssistantResponse } from "./assistant-response";
+import { AssistantResponse, MessageActions } from "./assistant-response";
 import { BackgroundUpdates } from "./background-updates";
 import { BrowserRunContext, BrowserToolCard } from "./browser-tool-card";
 import { BrowserThreadCard } from "./computer";
 import { ConversationQueue, type QueuedMessage } from "./conversation-queue";
 import { runConversationTurn } from "./conversation-run";
+import { buildUserContent, splitUserContent, type UserContent } from "./attachment-parts";
+import { AttachMenu, AttachmentChips, DropOverlay, MessageAttachments, useComposerAttachments } from "./composer-attachments";
 import { MailToolCard } from "./mail-tool-card";
 import { FileThreadCard, TaskThreadCard } from "./thread-artifacts";
 import { type Selection, useMuseThread } from "./threads";
@@ -34,6 +36,17 @@ import { Button, Card, CheckRow, colors, ErrorNotice, s } from "./ui";
 import { useWorkspace } from "./workspace";
 import { useI18n } from "./i18n";
 import { islandSession, notifyIsland } from "./island-host";
+import { GenericToolCard, RunStatsLine, RunTimeline, useContextWindow, useRunStats, useStepTimes } from "./run-trace";
+import { SparkApprovals, SparkCommandCard, useLatestRoute, useSparkApprovals } from "./spark-panel";
+import {
+  CalculatorCard,
+  FetchCard,
+  isDirectPage,
+  LinksCard,
+  PageTextCard,
+  TimeCard,
+  WebSearchCard,
+} from "./web-tool-cards";
 
 const displayParameters = z.record(z.string(), z.unknown());
 export function WorkspaceTools() {
@@ -63,8 +76,62 @@ export function WorkspaceTools() {
     name: "browse_web",
     description: "Follow the agent as it reads a webpage",
     parameters: displayParameters,
+    render: ({ args, result, status }) =>
+      // Pages read without the browser worker have no session to preview or take over.
+      isDirectPage(result) ? (
+        <PageTextCard result={result} loading={status !== "complete"} />
+      ) : (
+        <BrowserToolCard url={args.url} result={result} loading={status !== "complete"} />
+      ),
+  });
+  useRenderTool({
+    name: "web_search",
+    description: "Show web search results",
+    parameters: displayParameters,
     render: ({ args, result, status }) => (
-      <BrowserToolCard url={args.url} result={result} loading={status !== "complete"} />
+      <WebSearchCard args={args} result={result} loading={status !== "complete"} />
+    ),
+  });
+  useRenderTool({
+    name: "read_more",
+    description: "Show the next part of a page",
+    parameters: displayParameters,
+    render: ({ result, status }) => (
+      <PageTextCard more result={result} loading={status !== "complete"} />
+    ),
+  });
+  useRenderTool({
+    name: "extract_links",
+    description: "Show links found on a page",
+    parameters: displayParameters,
+    render: ({ result, status }) => <LinksCard result={result} loading={status !== "complete"} />,
+  });
+  useRenderTool({
+    name: "fetch_url",
+    description: "Show fetched URL responses",
+    parameters: displayParameters,
+    render: ({ result, status }) => <FetchCard result={result} loading={status !== "complete"} />,
+  });
+  useRenderTool({
+    name: "calculate",
+    description: "Show a calculation",
+    parameters: displayParameters,
+    render: ({ args, result, status }) => (
+      <CalculatorCard args={args} result={result} loading={status !== "complete"} />
+    ),
+  });
+  useRenderTool({
+    name: "get_time",
+    description: "Show the current time",
+    parameters: displayParameters,
+    render: ({ result, status }) => <TimeCard result={result} loading={status !== "complete"} />,
+  });
+  useRenderTool({
+    name: "run_spark_command",
+    description: "Show a command the agent ran on the DGX Spark",
+    parameters: displayParameters,
+    render: ({ args, result, status }) => (
+      <SparkCommandCard args={args} result={result} loading={status !== "complete"} />
     ),
   });
   useRenderTool({
@@ -97,6 +164,14 @@ export function WorkspaceTools() {
     parameters: displayParameters,
     render: ({ result, status }) => (
       <ServerToolCard name="Tracking" result={result} loading={status !== "complete"} />
+    ),
+  });
+  useRenderTool({
+    name: "*",
+    description: "Show any other tool step",
+    parameters: displayParameters,
+    render: ({ name, args, result, status }) => (
+      <GenericToolCard name={name} args={args} result={result} loading={status !== "complete"} />
     ),
   });
   useRenderTool({
@@ -186,6 +261,9 @@ export function ChatScreen({
   const { agent, isReady } = useAgent({ agentId, runtimeAgentId: "default", threadId });
   const { copilotkit } = useCopilotKit();
   const renderToolCall = useRenderToolCall();
+  const runStats = useRunStats(agent);
+  const stepTimes = useStepTimes(agent);
+  const contextWindow = useContextWindow();
   const [draft, setDraft] = useState("");
   const [focused, setFocused] = useState(false);
   const [inputHeight, setInputHeight] = useState(44);
@@ -195,6 +273,8 @@ export function ChatScreen({
   const [loaded, setLoaded] = useState(false);
   const [picking, setPicking] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
+  const [attachMenu, setAttachMenu] = useState(false);
+  const uploads = useComposerAttachments(api, active);
   const list = useRef<ScrollView>(null);
   const [queue] = useState(() => new ConversationQueue());
   const outbox = useSyncExternalStore(queue.subscribe, queue.getSnapshot, queue.getSnapshot);
@@ -267,7 +347,12 @@ export function ChatScreen({
       runLock.current = true;
       setBusy(true);
       setError("");
-      if (message) agent.addMessage({ id: message.id, role: "user", content: message.text });
+      if (message)
+        agent.addMessage({
+          id: message.id,
+          role: "user",
+          content: buildUserContent(message.text, message.parts ?? []) as Extract<Message, { role: "user" }>["content"],
+        });
       try {
         await runConversationTurn(
           agentId,
@@ -296,8 +381,8 @@ export function ChatScreen({
     void queue.flush(run).catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [agent, isReady, loaded, queue, run]);
   const enqueue = useCallback(
-    (text: string) => {
-      queue.enqueue({ id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text });
+    (text: string, parts?: QueuedMessage["parts"]) => {
+      queue.enqueue({ id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text, parts });
       followLatest.current = true;
       setAwayFromLatest(false);
       flush();
@@ -331,7 +416,8 @@ export function ChatScreen({
   }
   function send() {
     const text = draft.trim();
-    if (!text || !isReady || !loaded) return;
+    if ((!text && !uploads.parts.length) || !isReady || !loaded) return;
+    if (uploads.uploading) return;
     // A new submission can continue after Stop; held follow-ups still need explicit resume.
     if (!busy && !agent.isRunning && !saveError && !queue.getSnapshot().pending.length)
       queue.resume();
@@ -342,7 +428,9 @@ export function ChatScreen({
         (files.length
           ? `\n\nAttached documents: ${files.map((f) => `${f.name} (artifact ID: ${f.id})`).join(", ")}`
           : ""),
+      uploads.parts,
     );
+    uploads.clear();
     setDraft("");
     setInputHeight(44);
     setAttachments([]);
@@ -355,8 +443,36 @@ export function ChatScreen({
   );
   const visible = messages.filter((m) => m.role === "user" || m.role === "assistant");
   const replying = busy || agent.isRunning;
+  const latestRoute = useLatestRoute(replying);
+  const sparkApprovals = useSparkApprovals(replying);
+  const pendingCommands = sparkApprovals.list.map((a) => a.command);
+  // Regenerate: drop the latest reply and run the same user turn again. Local history only;
+  // rich (server-stored) threads keep their replies.
+  const regenerate =
+    !richThreads && latestUserIndex >= 0
+      ? () => {
+          agent.setMessages(messages.slice(0, latestUserIndex + 1));
+          void run()
+            .then(() => {
+              if (!queue.getSnapshot().paused) flush();
+            })
+            .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+        }
+      : undefined;
+  // A run = one user turn up to the next; its workflow and stats sit on its last assistant message.
+  const runEnds = new Map<string, { from: number; to: number; latest: boolean }>();
+  for (let i = 0, start = -1; i <= messages.length; i++) {
+    if (i === messages.length || messages[i].role === "user") {
+      if (start >= 0) {
+        const last = messages.slice(start, i).reverse().find((m) => m.role === "assistant");
+        if (last) runEnds.set(last.id, { from: start, to: i, latest: i === messages.length });
+      }
+      start = i + 1;
+    }
+  }
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1 }} ref={uploads.dropRef}>
+      <DropOverlay visible={uploads.dragging} />
       <ScrollView
         ref={list}
         showsVerticalScrollIndicator={false}
@@ -437,8 +553,11 @@ export function ChatScreen({
         ) : (
           visible.map((message) => {
             const user = message.role === "user";
-            const text = typeof message.content === "string" ? message.content : "";
+            const { text, attachments: shown } = splitUserContent(message.content as UserContent);
             const toolCalls = "toolCalls" in message ? message.toolCalls || [] : [];
+            const run = runEnds.get(message.id);
+            const stats = runStats[message.id];
+            const live = !!run?.latest && replying;
             return (
               <View
                 key={message.id}
@@ -449,6 +568,18 @@ export function ChatScreen({
                   gap: 8,
                 }}
               >
+                {run && (
+                  <RunTimeline
+                    messages={messages}
+                    from={run.from}
+                    to={run.to}
+                    route={run.latest && latestRoute?.used ? latestRoute : undefined}
+                    running={live}
+                    times={stepTimes}
+                    pendingCommands={run.latest ? pendingCommands : undefined}
+                  />
+                )}
+                {user && <MessageAttachments api={api} attachments={shown} />}
                 {!!text && (
                   <View
                     style={{
@@ -465,7 +596,7 @@ export function ChatScreen({
                         {text}
                       </Text>
                     ) : (
-                      <AssistantResponse content={text} />
+                      <AssistantResponse content={text} streaming={live} />
                     )}
                   </View>
                 )}
@@ -486,6 +617,19 @@ export function ChatScreen({
                     );
                   })}
                 </BrowserRunContext>
+                {!user && run && !live && (
+                  <MessageActions
+                    text={messages
+                      .slice(run.from, run.to)
+                      .filter((m) => m.role === "assistant" && typeof m.content === "string" && m.content.trim())
+                      .map((m) => m.content as string)
+                      .join("\n\n")}
+                    onRegenerate={run.latest ? regenerate : undefined}
+                    regenerateDisabled={replying || !loaded || !isReady}
+                  >
+                    {stats ? <RunStatsLine stats={stats} contextWindow={contextWindow} /> : null}
+                  </MessageActions>
+                )}
               </View>
             );
           })
@@ -534,6 +678,7 @@ export function ChatScreen({
             )}
           </>
         )}
+        <SparkApprovals approvals={sparkApprovals} />
         {(!richThreads || selection.id === mainId) && <BackgroundUpdates />}
         {(busy || agent.isRunning) && (
           <View
@@ -648,6 +793,12 @@ export function ChatScreen({
             )}
           </View>
         )}
+        <AttachMenu
+          open={attachMenu}
+          onClose={() => setAttachMenu(false)}
+          onUpload={() => void uploads.pick()}
+          onWorkspace={() => setPicking(true)}
+        />
         {picking && (
           <Card style={{ marginBottom: 12, padding: 15 }}>
             <Text style={s.heading}>{t("chat.addDoc")}</Text>
@@ -694,6 +845,7 @@ export function ChatScreen({
             elevation: 4,
           }}
         >
+          <AttachmentChips state={uploads} />
           {attachments.length > 0 && (
             <View style={[s.row, { gap: 6, flexWrap: "wrap", padding: 9 }]}>
               {w.files
@@ -731,16 +883,20 @@ export function ChatScreen({
           <View style={[s.row, { gap: 7, alignItems: "flex-end" }]}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Attach a document"
-              accessibilityState={{ expanded: picking }}
-              onPress={() => setPicking(!picking)}
+              accessibilityLabel={t("attach.menu")}
+              accessibilityHint={t("attach.upload")}
+              accessibilityState={{ expanded: attachMenu || picking }}
+              onPress={() => {
+                if (picking) setPicking(false);
+                else setAttachMenu(!attachMenu);
+              }}
               style={({ pressed }) => ({
                 width: 44,
                 height: 44,
                 alignItems: "center",
                 justifyContent: "center",
                 borderRadius: 24,
-                backgroundColor: picking || pressed ? colors.sky : "transparent",
+                backgroundColor: attachMenu || picking || pressed ? colors.sky : "transparent",
               })}
             >
               <Text style={{ color: colors.text, fontSize: 29, fontWeight: "300", lineHeight: 32 }}>
@@ -798,13 +954,13 @@ export function ChatScreen({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={replying ? "Stop reply" : "Send message"}
-              disabled={!replying && (!draft.trim() || !loaded || !isReady)}
+              disabled={!replying && ((!draft.trim() && !uploads.parts.length) || uploads.uploading || !loaded || !isReady)}
               onPress={replying ? () => void stop() : send}
               style={({ pressed }) => ({
                 width: 44,
                 height: 44,
                 borderRadius: 24,
-                backgroundColor: replying || draft.trim() ? colors.blue : "#F3F5F6",
+                backgroundColor: replying || ((draft.trim() || uploads.parts.length) && !uploads.uploading) ? colors.blue : "#F3F5F6",
                 alignItems: "center",
                 justifyContent: "center",
                 transform: [{ scale: pressed ? 0.94 : 1 }],
@@ -816,7 +972,7 @@ export function ChatScreen({
                 <ArrowUp
                   size={25}
                   strokeWidth={1.8}
-                  color={draft.trim() ? colors.text : "#9CB5C5"}
+                  color={(draft.trim() || uploads.parts.length) && !uploads.uploading ? colors.text : "#9CB5C5"}
                 />
               )}
             </Pressable>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assistantMarkdown, isSafeAssistantUrl } from "../src/assistant-markdown.ts";
+import { assistantMarkdown, codeBlocks, fenceLanguage, isLongOutput, isSafeAssistantUrl, withTaskLists } from "../src/assistant-markdown.ts";
 
 test("assistant Markdown structures the reported response", () => {
   const html = assistantMarkdown.render(

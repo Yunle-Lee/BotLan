@@ -1,4 +1,7 @@
-export type QueuedMessage = { id: string; text: string };
+import type { AttachmentPart } from "./attachment-parts";
+
+/** `parts` are uploaded chat attachments (references; the server keeps the bytes). */
+export type QueuedMessage = { id: string; text: string; parts?: AttachmentPart[] };
 type Snapshot = { pending: readonly QueuedMessage[]; running: boolean; paused: boolean };
 
 /** One AG-UI run at a time, while the person can keep composing. */

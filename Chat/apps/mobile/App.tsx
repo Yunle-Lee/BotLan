@@ -38,6 +38,7 @@ import { API_URL, createSession, MuseApi } from "./src/api";
 import { ChatScreen, WorkspaceTools } from "./src/chat";
 import { CodeWorkbenchScreen } from "./src/code-workbench";
 import { SkillsScreen } from "./src/skills-screen";
+import { SparkDockButton } from "./src/spark-panel";
 import { ComputerEntry } from "./src/computer";
 import { ComputerDraftProvider } from "./src/computer-drafts";
 import { Details } from "./src/details";
@@ -382,6 +383,7 @@ function WorkspaceShell({
                     width: 6, height: 6, borderRadius: 3, backgroundColor: colors.blueDark }} />}
                 </View>
                 {section === "chat" && <ComputerEntry compact />}
+                <SparkDockButton size={dockSize} />
               </ScrollView>
             </>
           )}
