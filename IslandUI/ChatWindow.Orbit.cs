@@ -35,11 +35,16 @@ public partial class ChatWindow
         set => SetValue(CarouselOffsetProperty, value);
     }
 
-    /// <summary>Real Bots first, then placeholders until <see cref="BotOrbitLayout.VisibleTabs"/> slots are filled.</summary>
+    /// <summary>Real Bots first, then placeholders until <see cref="BotOrbitLayout.VisibleTabs"/> slots are filled.
+    /// A belt that short is repeated once, so the wheel turns it like a longer one and a tab never
+    /// has to leave one end while entering the other.</summary>
     private static List<OrbitItem> BuildOrbitItems(IReadOnlyList<AgentBot> bots)
     {
         var items = bots.Select((bot, i) => new OrbitItem(bot, i)).ToList();
         for (int i = items.Count; i < BotOrbitLayout.VisibleTabs; i++) items.Add(new OrbitItem(null, i));
+        int count = items.Count;
+        if (count <= BotOrbitLayout.VisibleTabs)
+            items.AddRange(items.Select(item => item with { Slot = item.Slot + count }).ToArray());
         return items;
     }
 
@@ -198,12 +203,19 @@ public partial class ChatWindow
     private void RevealCarouselBot(AgentBot bot)
     {
         if (_carouselLayout is not { Scrolls: true }) return;
-        int index = _orbitItems.FindIndex(item => ReferenceEquals(item.Bot, bot));
-        if (index < 0) return;
-        double target = -index * _carouselLayout.Pitch;
+        // A repeated short belt holds the Bot twice; turn to whichever copy is nearer.
         double cycle = _carouselLayout.CycleLength;
-        target += Math.Round((CarouselOffset - target) / cycle) * cycle;
-        AnimateCarouselTo(target);
+        double? target = null;
+        for (int index = 0; index < _orbitItems.Count; index++)
+        {
+            if (!ReferenceEquals(_orbitItems[index].Bot, bot)) continue;
+            double candidate = -index * _carouselLayout.Pitch;
+            candidate += Math.Round((CarouselOffset - candidate) / cycle) * cycle;
+            if (target == null || Math.Abs(candidate - CarouselOffset) < Math.Abs(target.Value - CarouselOffset))
+                target = candidate;
+        }
+        if (target == null) return;
+        AnimateCarouselTo(target.Value);
     }
 
     private void ClearCarouselTabs()

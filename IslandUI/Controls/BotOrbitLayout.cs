@@ -30,7 +30,7 @@ internal sealed class BotOrbitLayout
     /// <summary>Constant spacing: a tab, its two round caps and one gap.</summary>
     public double Pitch => TabLength + BandWidth + Gap;
     public double CycleLength => Math.Max(1, BotCount) * Pitch;
-    /// <summary>The belt only turns when there are more items than visible slots.</summary>
+    /// <summary>A belt with more items than visible slots can turn without a tab jumping ends.</summary>
     public bool Scrolls => BotCount > VisibleTabs;
     public PathGeometry ViewportClip { get; }
 

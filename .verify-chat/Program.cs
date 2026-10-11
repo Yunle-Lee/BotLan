@@ -58,7 +58,7 @@ internal static class Program
             object layout = typeof(ChatWindow).GetField("_carouselLayout", Private)!.GetValue(window)!;
             double pitch = Read<double>(layout, "Pitch");
             double cycle = Read<double>(layout, "CycleLength");
-            int slots = Math.Max(3, count);
+            int slots = count <= 3 ? 6 : count; // short belts are repeated once
             Check(Read<int>(layout, "BotCount") == slots, $"{count} Bots: belt has {slots} entries (Bots + placeholders)");
             var seen = new HashSet<AgentBot>();
             int maximumControls = 0;
@@ -80,7 +80,7 @@ internal static class Program
             var rest = items.Children.OfType<CurvedBotTab>().Where(t => FullyVisible(t, layer)).ToArray();
             Check(rest.Length == 3, $"{count} Bots: exactly 3 visible tabs at rest (saw {rest.Length})");
             int placeholders = items.Children.OfType<CurvedBotTab>().Count(t => t.IsPlaceholder);
-            Check(placeholders == Math.Max(0, 3 - count) && rest.Count(t => t.IsPlaceholder) == Math.Max(0, 3 - count),
+            Check(rest.Count(t => t.IsPlaceholder) == Math.Max(0, 3 - count),
                 $"{count} Bots: {Math.Max(0, 3 - count)} \"待创建\" placeholders");
             Check(items.Children.OfType<CurvedBotTab>().Where(t => t.IsPlaceholder).All(t => !t.IsSelected
                 && t.Children.OfType<Border>().Single().Child is Grid { Children: [ShapePath { Name: "PlaceholderPlus" }] }
@@ -123,8 +123,6 @@ internal static class Program
                     if (distance < .001) appearanceOk &= ColorOf(shape.Fill) == ColorOf(ComicTheme.Current.Card);
                     if (distance >= fadeDistance) appearanceOk &= ColorOf(shape.Fill) == ColorOf(ComicTheme.Current.CardSoft);
                 }
-                // Fewer than four entries never turn: every sample shows the resting layout.
-                if (slots <= 3) break;
             }
             Check(unique, $"{count} Bots: no duplicated Bot at opposite ends");
             Check(geometryOk, $"{count} Bots: constant lane, no overlapping tabs or Chat, nothing outside the viewport");
@@ -146,13 +144,20 @@ internal static class Program
 
             if (count <= 3)
             {
-                // The belt does not turn while every entry is already on screen.
+                // Short belts turn too; settling on a placeholder keeps a real Bot selected.
                 double offsetBefore = (double)window.GetValue(Offset);
                 var wheel = new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120) { RoutedEvent = Mouse.PreviewMouseWheelEvent };
                 layer.RaiseEvent(wheel);
                 Pump(320);
-                Check(wheel.Handled && (double)window.GetValue(Offset) == offsetBefore
-                    && ((TextBlock)window.FindName("TitleText")).Text == selected.Config.Name, $"{count} Bots: wheel is inert and never selects a placeholder");
+                string turnedTitle = ((TextBlock)window.FindName("TitleText")).Text;
+                Check(wheel.Handled && Math.Abs((double)window.GetValue(Offset) - offsetBefore) > 1
+                    && (count == 0 ? turnedTitle == selected.Config.Name : AgentStore.Instance.Bots.Any(b => b.Config.Name == turnedTitle)),
+                    $"{count} Bots: wheel turns the rail and never selects a placeholder");
+                layer.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, 120) { RoutedEvent = Mouse.PreviewMouseWheelEvent });
+                Pump(320); root.UpdateLayout();
+                Check(((TextBlock)window.FindName("TitleText")).Text == selected.Config.Name
+                    && items.Children.OfType<CurvedBotTab>().Count(t => FullyVisible(t, layer)) == 3,
+                    $"{count} Bots: wheeling back returns to the first Bot");
                 var placeholderTab = items.Children.OfType<CurvedBotTab>().FirstOrDefault(t => t.IsPlaceholder);
                 if (placeholderTab != null)
                 {
@@ -166,7 +171,7 @@ internal static class Program
                     AgentStore.Instance.Bots.Add(added);
                     Pump(60); root.UpdateLayout();
                     var tabs = items.Children.OfType<CurvedBotTab>().ToArray();
-                    Check(tabs.Count(t => t.IsPlaceholder) == Math.Max(0, 3 - count - 1) && tabs.Any(t => ReferenceEquals(t.DataContext, added))
+                    Check(tabs.Count(t => t.IsPlaceholder && FullyVisible(t, layer)) == Math.Max(0, 3 - count - 1) && tabs.Any(t => ReferenceEquals(t.DataContext, added))
                         && tabs.Count(t => FullyVisible(t, layer)) == 3, $"{count} Bots: a new Bot replaces a placeholder in place");
                     Render(root, Path.Combine(output, $"bots-{count:00}-added.png"));
                 }
