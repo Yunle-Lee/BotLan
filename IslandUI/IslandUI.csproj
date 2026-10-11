@@ -12,6 +12,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- Keep in step with AppVersion in Packaging/IslandUI.iss. -->
+    <Version>1.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
