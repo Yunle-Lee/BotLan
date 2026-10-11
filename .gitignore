@@ -28,3 +28,9 @@ Chat/.island-data/
 Thumbs.db
 Desktop.ini
 *.log
+
+# ---- 测试工程的输出（截图、临时数据库、浏览器数据）----
+.verify-chat/*-renders/
+.verify-spark/renders/
+.verify-*/**/data/
+ProjectSupport/
