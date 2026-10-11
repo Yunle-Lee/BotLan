@@ -1,0 +1,640 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<!--[if IE 6]><html class="ie6" xmlns="http://www.w3.org/1999/xhtml"><![endif]-->
+<!--[if IE 7]><html class="lt-ie8 lt-ie9" xmlns="http://www.w3.org/1999/xhtml"><![endif]-->
+<!--[if IE 8]><html class="lt-ie9" xmlns="http://www.w3.org/1999/xhtml"><![endif]-->
+<!--[if gt IE 8]><!--><html xmlns="http://www.w3.org/1999/xhtml"><!--<![endif]-->
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=1" />
+  <meta name="referrer" content="origin" />
+  <meta name="HandheldFriendly" content="true" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>NVIDIA DGX Spark GB10 at DuckDuckGo</title>
+  <link title="DuckDuckGo (HTML)" type="application/opensearchdescription+xml" rel="search" href="//duckduckgo.com/opensearch_html_v2.xml" />
+  <link href="//duckduckgo.com/favicon.ico" rel="shortcut icon" />
+  <link rel="icon" href="//duckduckgo.com/favicon.ico" type="image/x-icon" />
+  <link id="icon60" rel="apple-touch-icon" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_60x60.png?v=2"/>
+  <link id="icon76" rel="apple-touch-icon" sizes="76x76" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_76x76.png?v=2"/>
+  <link id="icon120" rel="apple-touch-icon" sizes="120x120" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_120x120.png?v=2"/>
+  <link id="icon152" rel="apple-touch-icon" sizes="152x152" href="//duckduckgo.com/assets/icons/meta/DDG-iOS-icon_152x152.png?v=2"/>
+  <link rel="image_src" href="//duckduckgo.com/assets/icons/meta/DDG-icon_256x256.png">
+  <link rel="stylesheet" media="handheld, all" href="//duckduckgo.com/dist/h.12e359033b8c1146e5f7.css" type="text/css"/>
+</head>
+
+<body class="body--html">
+  <a name="top" id="top"></a>
+
+  <form action="/html/" method="post">
+    <input type="text" name="state_hidden" id="state_hidden" />
+  </form>
+
+  <div>
+    <div class="site-wrapper-border"></div>
+
+    <div id="header" class="header cw header--html">
+      <a title="DuckDuckGo" href="/html/" class="header__logo-wrap"></a>
+
+      <form name="x" class="header__form" action="/html/" method="post">
+        <div class="search search--header">
+          <input name="q" autocomplete="off" class="search__input" id="search_form_input_homepage" type="text" value="NVIDIA DGX Spark GB10" />
+          <input name="b" id="search_button_homepage" class="search__button search__button--html" value="" title="Search" alt="Search" type="submit" />
+        </div>
+
+        
+        
+        
+        
+
+        <div class="frm__select">
+          <select name="kl">
+            
+              <option value="" >All Regions</option>
+            
+              <option value="ar-es" >Argentina</option>
+            
+              <option value="au-en" >Australia</option>
+            
+              <option value="at-de" >Austria</option>
+            
+              <option value="be-fr" >Belgium (fr)</option>
+            
+              <option value="be-nl" >Belgium (nl)</option>
+            
+              <option value="br-pt" >Brazil</option>
+            
+              <option value="bg-bg" >Bulgaria</option>
+            
+              <option value="ca-en" >Canada (en)</option>
+            
+              <option value="ca-fr" >Canada (fr)</option>
+            
+              <option value="ct-ca" >Catalonia</option>
+            
+              <option value="cl-es" >Chile</option>
+            
+              <option value="cn-zh" >China</option>
+            
+              <option value="co-es" >Colombia</option>
+            
+              <option value="hr-hr" >Croatia</option>
+            
+              <option value="cz-cs" >Czech Republic</option>
+            
+              <option value="dk-da" >Denmark</option>
+            
+              <option value="ee-et" >Estonia</option>
+            
+              <option value="fi-fi" >Finland</option>
+            
+              <option value="fr-fr" >France</option>
+            
+              <option value="de-de" >Germany</option>
+            
+              <option value="gr-el" >Greece</option>
+            
+              <option value="hk-tzh" >Hong Kong</option>
+            
+              <option value="hu-hu" >Hungary</option>
+            
+              <option value="is-is" >Iceland</option>
+            
+              <option value="in-en" >India (en)</option>
+            
+              <option value="id-en" >Indonesia (en)</option>
+            
+              <option value="ie-en" >Ireland</option>
+            
+              <option value="il-en" >Israel (en)</option>
+            
+              <option value="it-it" >Italy</option>
+            
+              <option value="jp-jp" >Japan</option>
+            
+              <option value="kr-kr" >Korea</option>
+            
+              <option value="lv-lv" >Latvia</option>
+            
+              <option value="lt-lt" >Lithuania</option>
+            
+              <option value="my-en" >Malaysia (en)</option>
+            
+              <option value="mx-es" >Mexico</option>
+            
+              <option value="nl-nl" >Netherlands</option>
+            
+              <option value="nz-en" >New Zealand</option>
+            
+              <option value="no-no" >Norway</option>
+            
+              <option value="pk-en" >Pakistan (en)</option>
+            
+              <option value="pe-es" >Peru</option>
+            
+              <option value="ph-en" >Philippines (en)</option>
+            
+              <option value="pl-pl" >Poland</option>
+            
+              <option value="pt-pt" >Portugal</option>
+            
+              <option value="ro-ro" >Romania</option>
+            
+              <option value="ru-ru" >Russia</option>
+            
+              <option value="xa-ar" >Saudi Arabia</option>
+            
+              <option value="sg-en" >Singapore</option>
+            
+              <option value="sk-sk" >Slovakia</option>
+            
+              <option value="sl-sl" >Slovenia</option>
+            
+              <option value="za-en" >South Africa</option>
+            
+              <option value="es-ca" >Spain (ca)</option>
+            
+              <option value="es-es" >Spain (es)</option>
+            
+              <option value="se-sv" >Sweden</option>
+            
+              <option value="ch-de" >Switzerland (de)</option>
+            
+              <option value="ch-fr" >Switzerland (fr)</option>
+            
+              <option value="tw-tzh" >Taiwan</option>
+            
+              <option value="th-en" >Thailand (en)</option>
+            
+              <option value="tr-tr" >Turkey</option>
+            
+              <option value="us-en" >US (English)</option>
+            
+              <option value="us-es" >US (Spanish)</option>
+            
+              <option value="ua-uk" >Ukraine</option>
+            
+              <option value="uk-en" >United Kingdom</option>
+            
+              <option value="vn-en" >Vietnam (en)</option>
+            
+          </select>
+        </div>
+
+        <div class="frm__select frm__select--last">
+          <select class="" name="df">
+            
+              <option value="" selected>Any Time</option>
+            
+              <option value="d" >Past Day</option>
+            
+              <option value="w" >Past Week</option>
+            
+              <option value="m" >Past Month</option>
+            
+              <option value="y" >Past Year</option>
+            
+          </select>
+        </div>
+      </form>
+    </div>
+
+    
+
+    
+      <!-- Web results are present -->
+      <div>
+        <div class="serp__results">
+          <div id="links" class="results">
+            
+
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.nvidia.com%2Fen%2Dus%2Fproducts%2Fworkstations%2Fdgx%2Dspark%2F&amp;rut=6c4a515e31c097ca3e2e0830c9849ee3f58ae59c4988fab4f361724ef9337612">Personal AI Supercomputer Powered by Blackwell | NVIDIA DGX Spark</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.nvidia.com%2Fen%2Dus%2Fproducts%2Fworkstations%2Fdgx%2Dspark%2F&amp;rut=6c4a515e31c097ca3e2e0830c9849ee3f58ae59c4988fab4f361724ef9337612">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/www.nvidia.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.nvidia.com%2Fen%2Dus%2Fproducts%2Fworkstations%2Fdgx%2Dspark%2F&amp;rut=6c4a515e31c097ca3e2e0830c9849ee3f58ae59c4988fab4f361724ef9337612">
+                            www.nvidia.com/en-us/products/workstations/dgx-spark/
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.nvidia.com%2Fen%2Dus%2Fproducts%2Fworkstations%2Fdgx%2Dspark%2F&amp;rut=6c4a515e31c097ca3e2e0830c9849ee3f58ae59c4988fab4f361724ef9337612">Desktop Agent Computer Powered by the <b>NVIDIA</b> <b>GB10</b> Grace Blackwell Superchip, <b>NVIDIA</b> <b>DGX</b> <b>Spark</b>™ is a complete platform for local autonomous agents. Large local memory, powerful AI compute and the <b>NVIDIA</b> AI software stack enable agents and large models to run locally, reducing the need for cloud-based token generation resources. With a compact, power efficient design, <b>DGX</b> <b>Spark</b> is built to run ...</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.nvidia.com%2Fen%2Din%2Fproducts%2Fworkstations%2Fdgx%2Dspark%2F&amp;rut=31c129ac166b3f52ebeb040f78a50d46b2257691eb7db433d3985371e5b99fc9">NVIDIA DGX Spark: AI Supercomputer on Your Desk</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.nvidia.com%2Fen%2Din%2Fproducts%2Fworkstations%2Fdgx%2Dspark%2F&amp;rut=31c129ac166b3f52ebeb040f78a50d46b2257691eb7db433d3985371e5b99fc9">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/www.nvidia.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.nvidia.com%2Fen%2Din%2Fproducts%2Fworkstations%2Fdgx%2Dspark%2F&amp;rut=31c129ac166b3f52ebeb040f78a50d46b2257691eb7db433d3985371e5b99fc9">
+                            www.nvidia.com/en-in/products/workstations/dgx-spark/
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.nvidia.com%2Fen%2Din%2Fproducts%2Fworkstations%2Fdgx%2Dspark%2F&amp;rut=31c129ac166b3f52ebeb040f78a50d46b2257691eb7db433d3985371e5b99fc9">Desktop Agent Computer Powered by the <b>NVIDIA</b> <b>GB10</b> Grace Blackwell Superchip, <b>NVIDIA</b> <b>DGX</b> <b>Spark</b>™ is a complete platform for local autonomous agents. Large local memory, powerful AI compute and the <b>NVIDIA</b> AI software stack enable agents and large models to run locally, reducing the need for cloud-based token generation resources. With a compact, power efficient design, <b>DGX</b> <b>Spark</b> is built to run ...</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fmarketplace.nvidia.com%2Fen%2Dus%2Fenterprise%2Fpersonal%2Dai%2Dsupercomputers%2Fdgx%2Dspark%2F&amp;rut=a30a759d5d74853291224764d43464ecb2bb5496d713de6a2d428449b4b6c050">NVIDIA DGX Spark US - A Grace Blackwell AI supercomputer on your desk</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fmarketplace.nvidia.com%2Fen%2Dus%2Fenterprise%2Fpersonal%2Dai%2Dsupercomputers%2Fdgx%2Dspark%2F&amp;rut=a30a759d5d74853291224764d43464ecb2bb5496d713de6a2d428449b4b6c050">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/marketplace.nvidia.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fmarketplace.nvidia.com%2Fen%2Dus%2Fenterprise%2Fpersonal%2Dai%2Dsupercomputers%2Fdgx%2Dspark%2F&amp;rut=a30a759d5d74853291224764d43464ecb2bb5496d713de6a2d428449b4b6c050">
+                            marketplace.nvidia.com/en-us/enterprise/personal-ai-supercomputers/dgx-spark/
+                          </a>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fmarketplace.nvidia.com%2Fen%2Dus%2Fenterprise%2Fpersonal%2Dai%2Dsupercomputers%2Fdgx%2Dspark%2F&amp;rut=a30a759d5d74853291224764d43464ecb2bb5496d713de6a2d428449b4b6c050"><b>NVIDIA</b> <b>DGX</b> <b>Spark</b> A Grace Blackwell AI Supercomputer on your desk. &gt; <b>NVIDIA</b> <b>GB10</b> Grace Blackwell superchip &gt; 1 PFLOPS of FP4 AI performance &gt;</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fforums.developer.nvidia.com%2Fc%2Faccelerated%2Dcomputing%2Fdgx%2Dspark%2Dgb10%2F719&amp;rut=bdceca5037864cdf03e1aa747319bb798e93a8816cbd02416cb80a62187f291e">DGX Spark / GB10 User Forum - NVIDIA Developer Forums</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fforums.developer.nvidia.com%2Fc%2Faccelerated%2Dcomputing%2Fdgx%2Dspark%2Dgb10%2F719&amp;rut=bdceca5037864cdf03e1aa747319bb798e93a8816cbd02416cb80a62187f291e">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/forums.developer.nvidia.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fforums.developer.nvidia.com%2Fc%2Faccelerated%2Dcomputing%2Fdgx%2Dspark%2Dgb10%2F719&amp;rut=bdceca5037864cdf03e1aa747319bb798e93a8816cbd02416cb80a62187f291e">
+                            forums.developer.nvidia.com/c/accelerated-computing/dgx-spark-gb10/719
+                          </a>
+                          
+                            <span>&nbsp; &nbsp; 2026-10-10T00:00:00.0000000</span>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fforums.developer.nvidia.com%2Fc%2Faccelerated%2Dcomputing%2Fdgx%2Dspark%2Dgb10%2F719&amp;rut=bdceca5037864cdf03e1aa747319bb798e93a8816cbd02416cb80a62187f291e"><b>NVIDIA</b> Developer Forums Accelerated Computing <b>DGX</b> <b>Spark</b> / <b>GB10</b> User Forum <b>DGX</b> <b>Spark</b> / <b>GB10</b> Get support and view discussion topics about <b>DGX</b> <b>Spark</b> / <b>GB10</b>. Announcements Check here for the latest news, updates, and other relevant information. <b>DGX</b> <b>Spark</b> / <b>GB10</b> Projects Discover and share AI projects built on <b>DGX</b> <b>Spark</b> / <b>GB10</b>.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fbuild.nvidia.com%2Fspark&amp;rut=0555247f8504801ab2a4fd71e7ade32a7fca99e70ea18b8c5d0a678d6c1f02fa">DGX Spark - build.nvidia.com</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fbuild.nvidia.com%2Fspark&amp;rut=0555247f8504801ab2a4fd71e7ade32a7fca99e70ea18b8c5d0a678d6c1f02fa">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/build.nvidia.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fbuild.nvidia.com%2Fspark&amp;rut=0555247f8504801ab2a4fd71e7ade32a7fca99e70ea18b8c5d0a678d6c1f02fa">
+                            build.nvidia.com/spark
+                          </a>
+                          
+                            <span>&nbsp; &nbsp; 2025-10-13T00:00:00.0000000</span>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fbuild.nvidia.com%2Fspark&amp;rut=0555247f8504801ab2a4fd71e7ade32a7fca99e70ea18b8c5d0a678d6c1f02fa">Start Building AI Agents on <b>DGX</b> <b>Spark</b> Find instructions and examples to run AI workloads on the <b>NVIDIA</b> <b>GB10</b> Grace Blackwell Superchip</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdocs.nvidia.com%2Fdgx%2Fdgx%2Dspark%2Fhardware.html&amp;rut=b035579087c16262a385691071a88a69867c9952105f6865e9284ead7d0d1e62">Hardware Overview — DGX Spark User Guide - NVIDIA Documentation Hub</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdocs.nvidia.com%2Fdgx%2Fdgx%2Dspark%2Fhardware.html&amp;rut=b035579087c16262a385691071a88a69867c9952105f6865e9284ead7d0d1e62">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/docs.nvidia.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdocs.nvidia.com%2Fdgx%2Fdgx%2Dspark%2Fhardware.html&amp;rut=b035579087c16262a385691071a88a69867c9952105f6865e9284ead7d0d1e62">
+                            docs.nvidia.com/dgx/dgx-spark/hardware.html
+                          </a>
+                          
+                            <span>&nbsp; &nbsp; 2026-09-10T00:00:00.0000000</span>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdocs.nvidia.com%2Fdgx%2Fdgx%2Dspark%2Fhardware.html&amp;rut=b035579087c16262a385691071a88a69867c9952105f6865e9284ead7d0d1e62">Hardware Overview # Powered by the <b>NVIDIA</b> Grace Blackwell architecture, <b>DGX</b> <b>Spark</b> enables developers, researchers, and data scientists to prototype, deploy, and fine-tune large AI models on their desktop. This section provides information about the hardware components and specifications. System Overview # The <b>DGX</b> <b>Spark</b> features:</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdocs.nvidia.com%2Fdgx%2Fdgx%2Dspark%2Fnvaie%2Dquickstart.html&amp;rut=8275b627dfac699a86e481a1332ce69b50b8660d2fc474a37a28158711562d0f">NVIDIA AI Enterprise—DGX Spark Quick Start Guide</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdocs.nvidia.com%2Fdgx%2Fdgx%2Dspark%2Fnvaie%2Dquickstart.html&amp;rut=8275b627dfac699a86e481a1332ce69b50b8660d2fc474a37a28158711562d0f">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/docs.nvidia.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdocs.nvidia.com%2Fdgx%2Fdgx%2Dspark%2Fnvaie%2Dquickstart.html&amp;rut=8275b627dfac699a86e481a1332ce69b50b8660d2fc474a37a28158711562d0f">
+                            docs.nvidia.com/dgx/dgx-spark/nvaie-quickstart.html
+                          </a>
+                          
+                            <span>&nbsp; &nbsp; 2026-09-10T00:00:00.0000000</span>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdocs.nvidia.com%2Fdgx%2Fdgx%2Dspark%2Fnvaie%2Dquickstart.html&amp;rut=8275b627dfac699a86e481a1332ce69b50b8660d2fc474a37a28158711562d0f"><b>NVIDIA</b> AI Enterprise—DGX <b>Spark</b> is an enterprise-grade software platform for AI development, deployment, and optimization on <b>DGX</b> <b>Spark</b> and <b>NVIDIA</b> <b>GB10</b> Grace Blackwell Superchip-based systems.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.marktechpost.com%2F2026%2F10%2F02%2Fnvidia%2Dannounces%2Ddgx%2Dspark%2D64gb%2Da%2D1%2Dpetaflop%2Dgrace%2Dblackwell%2Ddesktop%2Dfor%2Dlocal%2Dai%2Dagents%2Dfine%2Dtuning%2Dand%2Dinference%2F&amp;rut=e4730d508795e52c8214c2b0b187f7d94d88f4fdb0ce322b596fc588bce9ed4c">NVIDIA Announces DGX Spark 64GB: A 1-PetaFLOP Grace Blackwell Desktop ...</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.marktechpost.com%2F2026%2F10%2F02%2Fnvidia%2Dannounces%2Ddgx%2Dspark%2D64gb%2Da%2D1%2Dpetaflop%2Dgrace%2Dblackwell%2Ddesktop%2Dfor%2Dlocal%2Dai%2Dagents%2Dfine%2Dtuning%2Dand%2Dinference%2F&amp;rut=e4730d508795e52c8214c2b0b187f7d94d88f4fdb0ce322b596fc588bce9ed4c">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/www.marktechpost.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.marktechpost.com%2F2026%2F10%2F02%2Fnvidia%2Dannounces%2Ddgx%2Dspark%2D64gb%2Da%2D1%2Dpetaflop%2Dgrace%2Dblackwell%2Ddesktop%2Dfor%2Dlocal%2Dai%2Dagents%2Dfine%2Dtuning%2Dand%2Dinference%2F&amp;rut=e4730d508795e52c8214c2b0b187f7d94d88f4fdb0ce322b596fc588bce9ed4c">
+                            www.marktechpost.com/2026/10/02/nvidia-announces-dgx-spark-64gb-a-1-petaflop-grace-blackwell-desktop-for-local-ai-agents-fine-tuning-and-inference/
+                          </a>
+                          
+                            <span>&nbsp; &nbsp; 2026-10-02T18:06:06.0000000</span>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.marktechpost.com%2F2026%2F10%2F02%2Fnvidia%2Dannounces%2Ddgx%2Dspark%2D64gb%2Da%2D1%2Dpetaflop%2Dgrace%2Dblackwell%2Ddesktop%2Dfor%2Dlocal%2Dai%2Dagents%2Dfine%2Dtuning%2Dand%2Dinference%2F&amp;rut=e4730d508795e52c8214c2b0b187f7d94d88f4fdb0ce322b596fc588bce9ed4c"><b>NVIDIA</b> announced a new 64GB configuration of <b>DGX</b> <b>Spark</b> — from Acer, ASUS, Dell, Gigabyte, HP and MSI — its <b>GB10</b>-powered desktop AI system. It gives developers a way to start with one system for local models and agents, then cluster two 64GB units for 128GB of memory across the cluster and more compute when workloads grow. The direct message is: Run open models and always-on agents on your ...</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.theregister.com%2Fsystems%2F2026%2F10%2F02%2Fnvidia%2Ddebuts%2D4999%2Ddgx%2Dspark%2Dwith%2Dhalf%2Dthe%2Dram%2Dand%2Dstorage%2Damid%2Dmemory%2Dcrunch%2F5300622&amp;rut=5bf33f6a373fec2b7d0bf6fd76c7658a139b937fdbb4fd50db1eba4cb0e56c52">Nvidia debuts $4,999 DGX Spark with half the RAM and storage, amid ...</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.theregister.com%2Fsystems%2F2026%2F10%2F02%2Fnvidia%2Ddebuts%2D4999%2Ddgx%2Dspark%2Dwith%2Dhalf%2Dthe%2Dram%2Dand%2Dstorage%2Damid%2Dmemory%2Dcrunch%2F5300622&amp;rut=5bf33f6a373fec2b7d0bf6fd76c7658a139b937fdbb4fd50db1eba4cb0e56c52">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/www.theregister.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.theregister.com%2Fsystems%2F2026%2F10%2F02%2Fnvidia%2Ddebuts%2D4999%2Ddgx%2Dspark%2Dwith%2Dhalf%2Dthe%2Dram%2Dand%2Dstorage%2Damid%2Dmemory%2Dcrunch%2F5300622&amp;rut=5bf33f6a373fec2b7d0bf6fd76c7658a139b937fdbb4fd50db1eba4cb0e56c52">
+                            www.theregister.com/systems/2026/10/02/nvidia-debuts-4999-dgx-spark-with-half-the-ram-and-storage-amid-memory-crunch/5300622
+                          </a>
+                          
+                            <span>&nbsp; &nbsp; 2026-10-02T13:00:25.0000000</span>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.theregister.com%2Fsystems%2F2026%2F10%2F02%2Fnvidia%2Ddebuts%2D4999%2Ddgx%2Dspark%2Dwith%2Dhalf%2Dthe%2Dram%2Dand%2Dstorage%2Damid%2Dmemory%2Dcrunch%2F5300622&amp;rut=5bf33f6a373fec2b7d0bf6fd76c7658a139b937fdbb4fd50db1eba4cb0e56c52">In an effort to provide a more affordable AI system, <b>Nvidia</b> is introducing a cut down version of the <b>DGX</b> <b>Spark</b> with half the memory and storage. The <b>GB10</b>-based systems will be offered exclusively through hardware partners including Acer, Asus, Dell, Gigabyte, HP, and MSI, and are expected to retail for around $4,999.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+              
+                <div class="result results_links results_links_deep web-result ">
+                  <div class="links_main links_deep result__body"> <!-- This is the visible part -->
+                    
+                      <h2 class="result__title">
+                        <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fblogs.nvidia.com%2Fblog%2Flocal%2Dai%2Ddgx%2Dspark%2D64gb%2Dsync%2F&amp;rut=c728dc8500cddf2d571ba0989ee9bddd7654de5574bb970eb170855462da2d53">NVIDIA DGX Spark 64GB Gives Developers More Ways to Build and Scale ...</a>
+                      </h2>
+
+                    
+
+                    
+                      <div class="result__extras">
+                        <div class="result__extras__url">
+                          <span class="result__icon">
+                            <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fblogs.nvidia.com%2Fblog%2Flocal%2Dai%2Ddgx%2Dspark%2D64gb%2Dsync%2F&amp;rut=c728dc8500cddf2d571ba0989ee9bddd7654de5574bb970eb170855462da2d53">
+                              <img class="result__icon__img" width="16" height="16" alt="" src="//external-content.duckduckgo.com/ip3/blogs.nvidia.com.ico" name="i15" />
+                            </a>
+                          </span>
+                          <a class="result__url" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fblogs.nvidia.com%2Fblog%2Flocal%2Dai%2Ddgx%2Dspark%2D64gb%2Dsync%2F&amp;rut=c728dc8500cddf2d571ba0989ee9bddd7654de5574bb970eb170855462da2d53">
+                            blogs.nvidia.com/blog/local-ai-dgx-spark-64gb-sync/
+                          </a>
+                          
+                            <span>&nbsp; &nbsp; 2026-10-02T00:00:00.0000000</span>
+                          
+                        </div>
+                      </div>
+                    
+
+                    
+                      
+                        <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fblogs.nvidia.com%2Fblog%2Flocal%2Dai%2Ddgx%2Dspark%2D64gb%2Dsync%2F&amp;rut=c728dc8500cddf2d571ba0989ee9bddd7654de5574bb970eb170855462da2d53"><b>NVIDIA</b> <b>DGX</b> <b>Spark</b> 64GB runs local AI agents on-device with the full <b>NVIDIA</b> AI stack — and clusters for greater performance as workloads grow.</a>
+                      
+                    
+
+                    <div class="clear"></div>
+                  </div>
+                </div>
+              
+            
+
+            
+              
+              
+                <div class="nav-link">
+                  <form action="/html/" method="post">
+                    <input type="submit" class='btn btn--alt' value="Next" />
+                    <input type="hidden" name="q" value="NVIDIA DGX Spark GB10" />
+                    <input type="hidden" name="s" value="10" />
+                    <input type="hidden" name="nextParams" value="" />
+                    <input type="hidden" name="v" value="l" />
+                    <input type="hidden" name="o" value="json" />
+                    <input type="hidden" name="dc" value="11" />
+                    <input type="hidden" name="api" value="d.js" />
+                    <input type="hidden" name="vqd" value="4-43727522858339232363310934372437125780" />
+
+                    
+                    
+                    
+                      <input name="kl" value="wt-wt" type="hidden" />
+                    
+                    
+                    
+                    
+                  </form>
+                </div>
+              
+            
+
+            <div class="feedback-btn">
+              <a rel="nofollow" href="//duckduckgo.com/feedback.html" target="_new">Feedback</a>
+            </div>
+            <div class="clear"></div>
+          </div>
+        </div>
+      </div> <!-- links wrapper //-->
+    
+  </div>
+
+  <div id="bottom_spacing2"></div>
+
+  
+    <img src="//duckduckgo.com/t/sl_h"/>
+  
+</body>
+</html>

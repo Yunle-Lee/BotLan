@@ -79,6 +79,14 @@ app.post("/island/session", async (c) => {
   }
   return c.json(await services.auth.session(hostKey, `island:${selectedId}`));
 });
+// A Spark zone's key is handed only to the native host, which saves it as a new Bot.
+app.post("/island/spark-claim", async (c) => {
+  if (c.req.header("origin") || !timingSafeEqual(digest(c.req.header("x-island-host-key") || ""), digest(hostKey)))
+    return c.json({ error: "Forbidden" }, 403);
+  const parsed = z.object({ claimId: z.uuid() }).safeParse(await c.req.json());
+  const bot = parsed.success ? services.agent.spark.claim(parsed.data.claimId) : undefined;
+  return bot ? c.json(bot) : c.json({ error: "Claim not found or expired" }, 404);
+});
 // Keep the standalone session route from creating a shared local-user workspace.
 app.post("/api/session", (c) => c.json({ error: "Open a Bot from IslandUI." }, 403));
 app.route("/", services.app);

@@ -6,7 +6,7 @@ import {
   defineTool,
   type ToolDefinition,
 } from "@copilotkit/runtime/v2";
-import { chat, maxIterations, type SchemaInput, toolDefinition } from "@tanstack/ai";
+import { type ChatMiddleware, chat, maxIterations, type SchemaInput, toolDefinition } from "@tanstack/ai";
 import { type AnthropicChatModel, anthropicText } from "@tanstack/ai-anthropic";
 import { type GeminiTextModel, geminiText } from "@tanstack/ai-gemini";
 import { type OpenAIChatModel, createOpenaiChatCompletions, openaiChatCompletions, openaiText } from "@tanstack/ai-openai";
@@ -73,6 +73,64 @@ function adapter(spec: string, islandBot?: IslandBotModel) {
   }
 }
 
+/**
+ * Times every model step of a run; the run wrapper reports it once, right before RUN_FINISHED,
+ * as a CUSTOM `botlan-run-stats` event: output speed and how full the context was.
+ * (The CopilotKit TanStack converter drops middleware CUSTOM events, so it cannot go that way.)
+ * Speed counts only generation time (first output to last), not tool time or prompt reading.
+ */
+export interface RunStats {
+  steps: number;
+  outputTokens: number;
+  /** Prompt tokens of the last model step: what the context holds now. */
+  contextTokens: number;
+  tokensPerSecond: number | null;
+  firstTokenMs: number | null;
+  totalMs: number;
+}
+
+function runStats(done: (stats: RunStats) => void): ChatMiddleware {
+  const started = Date.now();
+  let stepStart = 0, firstOut = 0, lastOut = 0, generationMs = 0, firstTokenMs: number | null = null;
+  let steps = 0, outputTokens = 0, contextTokens = 0;
+  const closeStep = () => {
+    if (firstOut && lastOut > firstOut) generationMs += lastOut - firstOut;
+    firstOut = lastOut = 0;
+  };
+  return {
+    onIteration: () => {
+      closeStep();
+      steps++;
+      stepStart = Date.now();
+    },
+    onChunk: (_ctx, chunk) => {
+      const type = (chunk as { type?: string }).type;
+      if (type !== "TEXT_MESSAGE_CONTENT" && type !== "TOOL_CALL_ARGS" && type !== "REASONING_MESSAGE_CONTENT") return;
+      const now = Date.now();
+      if (!firstOut) {
+        firstOut = now;
+        if (firstTokenMs === null && stepStart) firstTokenMs = now - stepStart;
+      }
+      lastOut = now;
+    },
+    onUsage: (_ctx, usage) => {
+      outputTokens += usage.completionTokens || 0;
+      if (usage.promptTokens) contextTokens = usage.promptTokens + (usage.completionTokens || 0);
+    },
+    onFinish: () => {
+      closeStep();
+      done({
+        steps,
+        outputTokens,
+        contextTokens,
+        tokensPerSecond: outputTokens && generationMs > 50 ? Math.round((outputTokens / generationMs) * 10000) / 10 : null,
+        firstTokenMs,
+        totalMs: Date.now() - started,
+      });
+    },
+  };
+}
+
 // The classic BuiltInAgent always offers these two state tools. The converter turns their
 // results into STATE_SNAPSHOT / STATE_DELTA events.
 const stateTools = [
@@ -114,7 +172,10 @@ export function tanstackAgent(options: {
   prompt: string;
   /** Said when the step limit, not the model, ends a run; otherwise the reply just stops. */
   stepLimitNote?: string;
+  /** The two AG-UI state tools; off for small models that would otherwise call them. */
+  stateTools?: boolean;
 }) {
+  const stats = new Map<string, RunStats>();
   const agent = new BuiltInAgent({
     type: "tanstack",
     factory: ({ input, abortController }) => {
@@ -137,7 +198,7 @@ export function tanstackAgent(options: {
         systemPrompts: system ? [system] : [],
         tools: [
           ...converted.tools,
-          ...[...options.tools, ...stateTools].map((tool) =>
+          ...[...options.tools, ...(options.stateTools === false ? [] : stateTools)].map((tool) =>
             toolDefinition({
               name: tool.name,
               description: tool.description,
@@ -146,18 +207,37 @@ export function tanstackAgent(options: {
           ),
         ],
         agentLoopStrategy: maxIterations(options.maxSteps),
+        middleware: [runStats((value) => stats.set(input.runId, value))],
         abortController,
       });
     },
   });
   const run = agent.run.bind(agent);
   agent.run = (input: RunAgentInput) => {
-    const events = splitTextAtToolCalls(run(input));
+    const events = withRunStats(splitTextAtToolCalls(run(input)), () => {
+      const value = stats.get(input.runId);
+      stats.delete(input.runId);
+      return value;
+    });
     return options.stepLimitNote
       ? reportStepLimit(events, options.maxSteps, options.stepLimitNote)
       : events;
   };
   return agent;
+}
+
+export const RUN_STATS_EVENT = "botlan-run-stats";
+
+function withRunStats(events: Observable<BaseEvent>, take: () => RunStats | undefined) {
+  return events.pipe(
+    mergeMap((event): BaseEvent[] => {
+      if (event.type !== EventType.RUN_FINISHED) return [event];
+      const value = take();
+      return value
+        ? [{ type: EventType.CUSTOM, name: RUN_STATS_EVENT, value } as BaseEvent, event]
+        : [event];
+    }),
+  );
 }
 
 /**

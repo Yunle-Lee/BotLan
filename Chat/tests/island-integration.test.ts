@@ -12,11 +12,16 @@ test("embedded Bots isolate credentials, conversations and runtime threads", { t
   await mkdir(fixtures, { recursive: true });
   const dataDir = await mkdtemp(join(fixtures, "server-"));
   const calls: { key: string; model: string }[] = [];
+  const prompts: { model: string; system: string; tools: string[] }[] = [];
   const modelServer = createServer(async (req, res) => {
+    if (req.method !== "POST") return void res.writeHead(404).end(); // e.g. the Spark gateway probe
     const chunks = [];
     for await (const part of req) chunks.push(part);
     const body = JSON.parse(Buffer.concat(chunks).toString());
     calls.push({ key: req.headers.authorization || "", model: body.model });
+    prompts.push({ model: body.model,
+      system: (body.messages ?? []).filter((m: { role: string }) => m.role === "system").map((m: { content: string }) => m.content).join("\n"),
+      tools: (body.tools ?? []).map((t: { function?: { name: string } }) => t.function?.name ?? "") });
     res.writeHead(200, { "Content-Type": "text/event-stream" });
     for (const choice of [
       { index: 0, delta: { role: "assistant", content: `reply-${body.model}` }, finish_reason: null },
@@ -72,6 +77,13 @@ test("embedded Bots isolate credentials, conversations and runtime threads", { t
     assert.deepEqual((await (await request(tokenA, "/api/conversation")).json() as { messages: unknown[] }).messages, messages);
     assert.equal((await (await request(tokenA, "/api/agent")).json() as { identity: { name: string } }).identity.name, "Fixture A");
     assert.equal((await (await request(tokenB, "/api/agent")).json() as { identity: { name: string } }).identity.name, "Fixture B");
+    // Skills are installed per Bot by the backend and must reach only that Bot's model prompt.
+    assert.equal((await request(tokenA, "/api/agent/skills/spark-model-planner/install", {})).status, 201);
+    const listA = await (await request(tokenA, "/api/agent/skills")).json() as { skills: { id: string; installed: boolean }[] };
+    const listB = await (await request(tokenB, "/api/agent/skills")).json() as { skills: { id: string; installed: boolean }[] };
+    assert.ok(listA.skills.find((x) => x.id === "spark-model-planner")?.installed);
+    assert.ok(!listB.skills.find((x) => x.id === "spark-model-planner")?.installed);
+    assert.equal((await request(tokenA, "/api/agent/skills/..%2Fetc/install", {})).status, 422);
     const run = (id: string) => ({ threadId: `island:${id}:local-main`, runId: `run-${id}`,
       messages: [{ id: `message-${id}`, role: "user", content: "reply briefly" }], state: {}, tools: [], context: [], forwardedProps: {} });
     assert.equal((await request(tokenA, "/api/copilotkit/agent/default/run", run("B"))).status, 403);
@@ -83,6 +95,10 @@ test("embedded Bots isolate credentials, conversations and runtime threads", { t
       assert.doesNotMatch(events, /RUN_ERROR/);
     }
     assert.deepEqual(calls, [{ key: "Bearer fixture-key-A", model: "model-A" }, { key: "Bearer fixture-key-B", model: "model-B" }]);
+    const promptA = prompts.find((p) => p.model === "model-A"), promptB = prompts.find((p) => p.model === "model-B");
+    assert.match(promptA?.system ?? "", /Installed Agent Skills[\s\S]*spark-model-planner/);
+    assert.doesNotMatch(promptB?.system ?? "", /spark-model-planner/);
+    assert.ok(promptA?.tools.includes("load_skill"), JSON.stringify(promptA?.tools));
     console.log("PASS: shared page, isolated history/identity/model/key, blocked cross-Bot run, real SSE replies from LOCAL mock only");
   } finally {
     if (child.exitCode === null) {

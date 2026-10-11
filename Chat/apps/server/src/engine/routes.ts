@@ -7,6 +7,7 @@ import type {
   AgentNotification,
 } from "../../../../packages/domain/src/agent.ts";
 import { AppError } from "../errors.ts";
+import { skillRouteSchemas } from "../skills.ts";
 import type { AgentService } from "./service.ts";
 
 const text = z.string().trim().min(1).max(4000);
@@ -28,6 +29,25 @@ const goalPatchSchema = z.object({
 export function agentRoutes(service: AgentService): Hono<{ Variables: { owner: string } }> {
   const app = new Hono<{ Variables: { owner: string } }>();
   app.get("/", async (c) => c.json(await service.snapshot(c.get("owner"))));
+  app.get("/skills", async (c) => c.json(await service.skills.list(c.get("owner"))));
+  app.get("/skills/:id", async (c) =>
+    c.json(await service.skills.detail(c.get("owner"), c.req.param("id"))),
+  );
+  app.post("/skills/import", async (c) => {
+    const { url } = skillRouteSchemas.importUrl.parse(await c.req.json());
+    return c.json(await service.skills.importUrl(c.get("owner"), url), 201);
+  });
+  app.post("/skills/:id/install", async (c) =>
+    c.json(await service.skills.install(c.get("owner"), c.req.param("id")), 201),
+  );
+  app.post("/skills/:id/enabled", async (c) => {
+    const { enabled } = skillRouteSchemas.enabled.parse(await c.req.json());
+    return c.json(await service.skills.setEnabled(c.get("owner"), c.req.param("id"), enabled));
+  });
+  app.post("/skills/:id/uninstall", async (c) => {
+    await service.skills.uninstall(c.get("owner"), c.req.param("id"));
+    return c.json({ ok: true });
+  });
   app.post("/tasks", async (c) =>
     c.json(await service.createTask(c.get("owner"), await c.req.json()), 201),
   );

@@ -18,6 +18,8 @@ import { AgentService } from "./engine/service.ts";
 import { AppError } from "./errors.ts";
 import { Files } from "./files.ts";
 import { GoogleAuth } from "./google-auth.ts";
+import { sparkRoutes } from "./spark.ts";
+import { FILE_MAX_BYTES, Uploads } from "./uploads.ts";
 import { WorkspaceService } from "./workspace.ts";
 
 export async function createApp(
@@ -28,6 +30,7 @@ export async function createApp(
   assertApiDeploymentConfig(config);
   const auth = await createAuth(db, config),
     files = new Files(db, config, auth),
+    uploads = new Uploads(db, config, files),
     google = new GoogleAuth(db, config),
     workspace = new WorkspaceService(db, config, files, google);
   const actions = new ActionService(db, {
@@ -62,13 +65,16 @@ export async function createApp(
       credentials: true,
     }),
   );
-  app.use(
-    "*",
-    bodyLimit({
-      maxSize: 12 * 1024 * 1024,
-      onError: (c) => c.json({ error: "Request is too large; PDFs must be 10 MB or smaller" }, 413),
-    }),
-  );
+  const defaultLimit = bodyLimit({
+    maxSize: 12 * 1024 * 1024,
+    onError: (c) => c.json({ error: "Request is too large; PDFs must be 10 MB or smaller" }, 413),
+  });
+  const uploadLimit = bodyLimit({
+    // One chat attachment (20 MB) plus multipart overhead.
+    maxSize: FILE_MAX_BYTES + 256 * 1024,
+    onError: (c) => c.json({ error: "Files must be 20 MB or smaller." }, 413),
+  });
+  app.use("*", (c, next) => (c.req.path === "/api/uploads" ? uploadLimit : defaultLimit)(c, next));
   app.onError((error, c) => {
     if (error instanceof z.ZodError)
       return c.json({ error: error.issues.map((i) => i.message).join("; ") }, 422);
@@ -125,7 +131,7 @@ export async function createApp(
   });
   app.use("/api/*", async (c, next) => {
     const signedRoute =
-      /^\/api\/files\/[^/]+\/content$|^\/api\/browsers\/[^/]+\/(?:preview|console)$/.test(
+      /^\/api\/(?:files|uploads)\/[^/]+\/content$|^\/api\/browsers\/[^/]+\/(?:preview|console)$/.test(
         c.req.path,
       );
     const owner =
@@ -142,6 +148,7 @@ export async function createApp(
   });
   app.route("/api/agent", agentRoutes(agent));
   app.route("/api/computer", computerRoutes(computer, files));
+  app.route("/api/spark", sparkRoutes(agent.spark));
   app.get("/api/calendars", async (c) => c.json(await workspace.calendars(c.get("owner"))));
   app.get("/api/calendar/events", async (c) => {
     const query = z
@@ -226,6 +233,29 @@ export async function createApp(
       ),
       201,
     );
+  });
+  app.post("/api/uploads", async (c) => {
+    const data = await c.req.parseBody();
+    const file = data.file;
+    if (!(file instanceof File)) throw new AppError("Choose a file to attach");
+    if (file.size > FILE_MAX_BYTES) throw new AppError("Files must be 20 MB or smaller.", 413);
+    return c.json(await uploads.save(c.get("owner"), file.name, new Uint8Array(await file.arrayBuffer())), 201);
+  });
+  app.get("/api/uploads/:id", async (c) => {
+    const upload = await uploads.get(c.get("owner"), c.req.param("id"));
+    return c.json({ ...upload, url: auth.sign(c.get("owner"), `/api/uploads/${upload.id}/content`) });
+  });
+  app.get("/api/uploads/:id/content", async (c) => {
+    const { upload, bytes } = await uploads.bytes(c.get("owner"), c.req.param("id"));
+    // Only sniffed raster images render inline; everything else downloads as opaque bytes.
+    c.header("Content-Type", upload.kind === "image" ? upload.mimeType : "application/octet-stream");
+    c.header(
+      "Content-Disposition",
+      `${upload.kind === "image" ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(upload.name)}`,
+    );
+    c.header("Content-Security-Policy", "default-src 'none'; sandbox");
+    c.header("Cache-Control", "private, max-age=86400");
+    return c.body(new Uint8Array(bytes));
   });
   app.get("/api/files/:id/content", async (c) => {
     const file = await files.get(c.get("owner"), c.req.param("id"));
@@ -338,5 +368,5 @@ export async function createApp(
   app.get("/", (c) =>
     c.json({ name: "AI Studio", app: "http://localhost:8081", health: "/api/health" }),
   );
-  return { app, auth, files, actions, workspace, agent, computer };
+  return { app, auth, files, uploads, actions, workspace, agent, computer };
 }
