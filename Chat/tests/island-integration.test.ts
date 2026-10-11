@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, mkdir } from "node:fs/promises";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
@@ -109,6 +109,8 @@ test("embedded Bots isolate credentials, conversations and runtime threads", { t
       clearTimeout(force);
     }
     modelServer.close();
+    // Each run starts a fresh PGlite database (~24 MB); keep it only when the test failed.
+    if (child.exitCode === 0) await rm(dataDir, { recursive: true, force: true }).catch(() => {});
   }
   assert.equal(child.exitCode, 0, errors);
 });
