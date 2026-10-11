@@ -8,12 +8,20 @@ using IslandUI.Bots;
 using IslandUI.Services;
 using ShapePath = System.Windows.Shapes.Path;
 
+// The verification harness (.verify-chat) inspects tabs and placeholders directly.
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("ChatPreview")]
+
 namespace IslandUI.Controls;
 
-/// <summary>A reusable Bot tab whose silhouette and contents bend as it moves along the belt.</summary>
+/// <summary>
+/// A reusable Bot tab whose silhouette and contents bend as it moves along the belt.
+/// Without a Bot it is a "待创建" placeholder: dashed outline, a "+" instead of the avatar.
+/// </summary>
 internal sealed class CurvedBotTab : Canvas
 {
-    private readonly AgentBot _bot;
+    public const string PlaceholderName = "待创建";
+    private readonly AgentBot? _bot;
+    private BotOrbitLayout? _lastLayout;
     private readonly ShapePath _surface;
     private readonly ShapePath _neutralWave;
     private readonly ShapePath _accentWave;
@@ -23,14 +31,18 @@ internal sealed class CurvedBotTab : Canvas
     private double _nameHeight;
     private double _labelDpi;
     private readonly Border _avatar;
-    private readonly BotView _botView;
+    private readonly BotView? _botView;
     private OrbitTabSlot? _lastSlot;
     private bool _lastWorking;
     private bool _pulsing;
     private string? _lastName;
     public bool IsSelected { get; private set; }
+    public bool IsPlaceholder => _bot == null;
+    private string BotName => _bot?.Config.Name ?? PlaceholderName;
+    private bool Working => _bot?.IsWorking == true;
 
-    public CurvedBotTab(AgentBot bot)
+    /// <summary>Creates a tab for <paramref name="bot"/>, or a "待创建" placeholder when null.</summary>
+    public CurvedBotTab(AgentBot? bot)
     {
         _bot = bot;
         DataContext = bot;
@@ -44,25 +56,36 @@ internal sealed class CurvedBotTab : Canvas
         _neutralWave = Wave(ComicTheme.Current.Muted, 0.62);
         _accentWave = Wave(ComicTheme.Current.BlueDark, 0.65);
         _nameLabel = new ShapePath { Name = "BotNameLabel", Stretch = Stretch.None, IsHitTestVisible = false };
-        var bodyBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(bot.Config.ColorHex));
-        bodyBrush.Freeze();
-        _botView = new BotView
+        if (bot != null)
         {
-            Margin = new Thickness(2.5),
-            BodyColor = bodyBrush,
-            Shape = bot.Config.BotShape,
-            Expression = bot.Config.BotExpression,
-            GazeYaw = -12,
-            GazePitch = 4,
-            Liveliness = false,
-        };
+            var bodyBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(bot.Config.ColorHex));
+            bodyBrush.Freeze();
+            _botView = new BotView
+            {
+                Margin = new Thickness(2.5),
+                BodyColor = bodyBrush,
+                Shape = bot.Config.BotShape,
+                Expression = bot.Config.BotExpression,
+                GazeYaw = -12,
+                GazePitch = 4,
+                Liveliness = false,
+            };
+        }
         _avatar = new Border
         {
-            Background = ComicTheme.Current.SkyTint,
+            Name = "TabAvatar",
+            Background = bot == null ? ComicTheme.Current.Card : ComicTheme.Current.SkyTint,
             BorderThickness = new Thickness(1.6),
             IsHitTestVisible = false,
-            Child = _botView,
+            Child = bot != null ? _botView : PlusGlyph(),
         };
+        if (bot == null)
+        {
+            _surface.StrokeDashArray = [3.2, 2.2];
+            _surface.StrokeDashCap = PenLineCap.Round;
+            ToolTip = "添加一个 Bot";
+            System.Windows.Automation.AutomationProperties.SetName(this, PlaceholderName + " · 添加 Bot");
+        }
         Children.Add(_surface);
         Children.Add(_nameLabel);
         Children.Add(_neutralWave);
@@ -78,24 +101,28 @@ internal sealed class CurvedBotTab : Canvas
 
     public void Place(BotOrbitLayout layout, OrbitTabSlot slot, bool selected)
     {
-        if (IsSelected != selected || _lastName != _bot.Config.Name)
+        selected &= _bot != null;   // a placeholder is never the current Chat
+        if (_bot != null && (IsSelected != selected || _lastName != BotName))
         {
-            if (_lastName != _bot.Config.Name) _nameGlyphs.Clear();
-            _lastName = _bot.Config.Name;
+            if (_lastName != BotName) _nameGlyphs.Clear();
+            _lastName = BotName;
             ToolTip = selected ? _lastName + " · 当前对话" : "切换到 " + _lastName;
             System.Windows.Automation.AutomationProperties.SetName(this, _lastName);
         }
+        _lastName ??= BotName;
         IsSelected = selected;
-        _botView.State = _bot.BotStateName;
+        if (_botView != null) _botView.State = _bot!.BotStateName;
         ApplyStyle(layout, slot);
         UpdatePulse();
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         bool labelChanged = _nameGlyphs.Count == 0 || _labelDpi != dpi;
         if (labelChanged) MeasureName(slot.AvatarAt - slot.Start - 42, dpi);
-        _nameLabel.Fill = ComicTheme.Current.Ink;
-        if (_lastSlot == slot && _lastWorking == _bot.IsWorking && !labelChanged) return;
+        _nameLabel.Fill = _bot == null ? ComicTheme.Current.Muted : ComicTheme.Current.Ink;
+        // The same belt distance lies elsewhere once the card is resized, so the layout counts too.
+        if (_lastSlot == slot && ReferenceEquals(_lastLayout, layout) && _lastWorking == Working && !labelChanged) return;
         _lastSlot = slot;
-        _lastWorking = _bot.IsWorking;
+        _lastLayout = layout;
+        _lastWorking = Working;
         _surface.Data = layout.Body(slot);
         _surface.StrokeThickness = layout.OutlineWidth;
 
@@ -127,6 +154,12 @@ internal sealed class CurvedBotTab : Canvas
         label.Freeze();
         _nameLabel.Data = label;
 
+        if (_bot == null)
+        {
+            // A placeholder has no activity: an empty dashed lane.
+            _neutralWave.Data = _accentWave.Data = null;
+            return;
+        }
         var neutral = new GeometryGroup();
         var accent = new GeometryGroup();
         double[] heights = [10, 20, 15, 29, 22, 35, 18, 27, 14, 31, 24, 16];
@@ -137,7 +170,7 @@ internal sealed class CurvedBotTab : Canvas
             if (Math.Abs(distance - slot.AvatarAt) < size / 2 + 12) continue;
             var pose = layout.Track.At(distance);
             var normal = new Vector(-pose.Tangent.Y, pose.Tangent.X);
-            double half = heights[i % heights.Length] / 2 * (_bot.IsWorking ? 1.1 : 0.88);
+            double half = heights[i % heights.Length] / 2 * (Working ? 1.1 : 0.88);
             var line = new LineGeometry(pose.Point - normal * half, pose.Point + normal * half);
             (i % 3 == 0 ? accent : neutral).Children.Add(line);
         }
@@ -210,12 +243,35 @@ internal sealed class CurvedBotTab : Canvas
         }
         _surface.Stroke = ComicTheme.Current.Muted;
         _avatar.BorderBrush = ComicTheme.Current.Muted;
+        if (_bot == null)
+        {
+            // Placeholders stay quieter than real Bots at the same position.
+            Opacity *= 0.82;
+            _surface.Fill = ComicTheme.Current.CardSoft;
+        }
+    }
+
+    private static UIElement PlusGlyph()
+    {
+        var plus = new ShapePath
+        {
+            Name = "PlaceholderPlus",
+            Data = Geometry.Parse("M 8,0 L 8,16 M 0,8 L 16,8"),
+            Stroke = ComicTheme.Current.Muted,
+            StrokeThickness = 2.6,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            Stretch = Stretch.None,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        return new Grid { Children = { plus } };
     }
 
     private void UpdatePulse()
     {
         if (!IsLoaded) return;
-        bool working = _bot.IsWorking;
+        bool working = Working;
         if (working == _pulsing) return;
         _pulsing = working;
         _accentWave.BeginAnimation(OpacityProperty, working

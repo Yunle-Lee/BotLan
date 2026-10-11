@@ -24,6 +24,7 @@
   <ItemGroup>
     <Resource Include="Resources\*.ttf" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3719.77" />
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>
 
 </Project>

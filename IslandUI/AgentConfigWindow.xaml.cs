@@ -100,5 +100,11 @@ public partial class AgentConfigWindow : Window
         Close();
     }
 
+    private void SparkAuto_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        Close();
+        SparkConnectWindow.ShowSingleton();
+    }
+
     private void Close_Click(object sender, System.Windows.Input.MouseButtonEventArgs e) => Close();
 }

@@ -29,6 +29,7 @@
             <Grid.ContextMenu>
                 <ContextMenu>
                     <MenuItem Header="添加 Agent" Click="AddAgentMenuItem_Click"/>
+                    <MenuItem Header="连接 DGX Spark…" Click="SparkMenuItem_Click"/>
                     <MenuItem Header="切换到小岛（WiFi/电池）" Click="SwitchToSmall_Click"/>
                     <Separator/>
                     <MenuItem Header="退出" Click="ExitMenuItem_Click"/>
@@ -59,6 +60,30 @@
                         <TextBlock Text="+" FontFamily="Comic Sans MS" FontSize="20"
                                    Foreground="{Binding Ink, Source={x:Static local:ComicTheme.Current}}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- 没有 Bot 时:连接 DGX Spark 的引导卡(适配 64px 胶囊) -->
+                    <Border x:Name="SparkCta" Width="48" Margin="0,8,0,2" Padding="0,8,0,7"
+                            CornerRadius="14,16,14,12" Cursor="Hand" ToolTip="连接 DGX Spark"
+                            Visibility="Collapsed"
+                            Background="{Binding SkyTint, Source={x:Static local:ComicTheme.Current}}"
+                            BorderBrush="{Binding Outline, Source={x:Static local:ComicTheme.Current}}"
+                            BorderThickness="2"
+                            MouseLeftButtonUp="SparkCta_Click">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{Binding BlueDark, Source={x:Static local:ComicTheme.Current}}"/>
+                            <TextBlock Text="连接" FontFamily="Comic Sans MS" FontSize="11" FontWeight="Bold"
+                                       HorizontalAlignment="Center" Margin="0,4,0,0"
+                                       Foreground="{Binding Ink, Source={x:Static local:ComicTheme.Current}}"/>
+                            <TextBlock Text="DGX" FontFamily="Comic Sans MS" FontSize="10"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{Binding Ink, Source={x:Static local:ComicTheme.Current}}"/>
+                            <TextBlock Text="Spark" FontFamily="Comic Sans MS" FontSize="10"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{Binding Ink, Source={x:Static local:ComicTheme.Current}}"/>
+                        </StackPanel>
                     </Border>
 
                     <!-- bots:球形 bot + 彩色虚线圆环 -->

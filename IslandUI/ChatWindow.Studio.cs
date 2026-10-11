@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using IslandUI.Services;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
@@ -23,20 +25,38 @@ public partial class ChatWindow
     private string? _studioOrigin;
     private bool _studioNavigationPending;
     private bool _studioRuntimeRequested;
+    private bool _studioReady;
+    private int _readyFallbackVersion;
+    // Open -> page-ready timeline, written to Debug output and read by the harness.
+    private readonly Stopwatch _openClock = new();
+    internal readonly List<(string Phase, long Ms)> StudioTimeline = [];
+
+    private void StudioTiming(string phase)
+    {
+        long ms = _openClock.ElapsedMilliseconds;
+        StudioTimeline.Add((phase, ms));
+        Debug.WriteLine($"[ChatWindow] {ms,6} ms  {phase}");
+    }
 
     private async Task OpenStudioAsync()
     {
         if (_openingStudio || _studioClosed || _legacyMode || !IsLoaded) return;
         _openingStudio = true;
-        StudioLoading.Visibility = Visibility.Visible;
+        ShowStudioSkeleton();
+        StudioErrorPanel.Visibility = Visibility.Collapsed;
         StudioRetry.Visibility = StudioFallback.Visibility = Visibility.Collapsed;
-        StudioLoadMessage.Text = "正在打开 AI Studio…";
         try
         {
             _studioRuntimeRequested = true;
             var runtime = ChatStudioRuntime.Shared;
             var requestedBot = _bot;
-            var sessionTask = runtime.SessionAsync(requestedBot, _studioLifetime.Token);
+            async Task<StudioSession> SessionTimedAsync()
+            {
+                var result = await runtime.SessionAsync(requestedBot, _studioLifetime.Token);
+                StudioTiming("backend session ready");
+                return result;
+            }
+            var sessionTask = SessionTimedAsync();
             _studioView?.Dispose();
             StudioWebHost.Children.Clear();
             var view = new WebView2CompositionControl
@@ -44,14 +64,18 @@ public partial class ChatWindow
                 UseLayoutRounding = true,
                 SnapsToDevicePixels = true,
                 ZoomFactor = 1,
+                // No white flash: the browser paints the card color until the page draws.
+                DefaultBackgroundColor = DrawingColor(ComicTheme.Current.Card),
             };
             _studioView = view;
             StudioWebHost.Children.Add(view);
             async Task InitializeBrowserAsync()
             {
                 var environment = await runtime.BrowserEnvironmentAsync();
+                StudioTiming("WebView2 environment ready");
                 _studioLifetime.Token.ThrowIfCancellationRequested();
                 await view.EnsureCoreWebView2Async(environment);
+                StudioTiming("WebView2 controller ready");
             }
             await Task.WhenAll(sessionTask, InitializeBrowserAsync());
             _studioLifetime.Token.ThrowIfCancellationRequested();
@@ -71,7 +95,7 @@ public partial class ChatWindow
                     e.Cancel = true;
                     if (e.IsUserInitiated) OpenStudioLink(e.Uri);
                 }
-                else StudioLoading.Visibility = Visibility.Visible;
+                else { _studioReady = false; ShowStudioSkeleton(); }
             };
             core.NewWindowRequested += (_, e) =>
             {
@@ -84,9 +108,11 @@ public partial class ChatWindow
                 if (_studioClosed) return;
                 _studioNavigationPending = false;
                 if (!e.IsSuccess) { ShowStudioError("页面加载失败，请重新连接。"); return; }
+                StudioTiming("navigation complete");
                 _studioLoaded = true;
                 _studioBotId = requestedBot.Config.Id;
                 if (!ReferenceEquals(requestedBot, _bot)) await SelectStudioBotAsync();
+                else RevealStudioPageLater();
             };
             _studioNavigationPending = true;
             core.Navigate(session.ApiUrl + "/index.html");
@@ -103,8 +129,8 @@ public partial class ChatWindow
         if (!_studioLoaded) { if (!_openingStudio && !_studioNavigationPending) await OpenStudioAsync(); return; }
         var version = ++_studioSelectionVersion;
         var requestedBot = _bot;
-        StudioLoading.Visibility = Visibility.Visible;
-        StudioLoadMessage.Text = $"正在打开 {requestedBot.Config.Name}…";
+        _studioReady = false;
+        ShowStudioSkeleton();
         try
         {
             var session = await ChatStudioRuntime.Shared.SessionAsync(requestedBot, _studioLifetime.Token);
@@ -112,6 +138,7 @@ public partial class ChatWindow
             _studioBotId = requestedBot.Config.Id;
             _studioView?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(
                 new { type = "select-bot", session }, StudioJson));
+            RevealStudioPageLater();
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (!_studioClosed && version == _studioSelectionVersion) ShowStudioError(ex.Message); }
@@ -128,17 +155,24 @@ public partial class ChatWindow
             switch (type.GetString())
             {
                 case "expand-chat":
-                    _ = UnfoldChatAsync();
-                    break;
+                    break;   // Chat no longer has a folded state to expand from.
                 case "bot-avatar-bounds":
                     PositionStudioAvatar(message);
                     break;
                 case "page-ready":
                     if (message.TryGetProperty("botId", out var readyBot) && readyBot.GetString() == _bot.Config.Id)
-                        StudioLoading.Visibility = Visibility.Collapsed;
+                    {
+                        if (!_studioReady) StudioTiming("page-ready");
+                        RevealStudioPage();
+                    }
                     break;
                 case "drag-window":
                     BeginStudioDrag();
+                    break;
+                case "spark-zone-created":
+                    if (message.TryGetProperty("claimId", out var claim) && claim.GetString() is { } claimId)
+                        _ = AddSparkZoneBotAsync(claimId,
+                            message.TryGetProperty("color", out var zc) ? zc.GetString() : null);
                     break;
                 case "bot-state":
                     if (!message.TryGetProperty("botId", out var id) || !message.TryGetProperty("state", out var state)) return;
@@ -158,6 +192,26 @@ public partial class ChatWindow
         catch (JsonException) { }
     }
 
+    private static readonly string[] ZonePalette = ["#76B900", "#54A8FF", "#FF7A59", "#C792EA", "#FFD866", "#FF6188"];
+
+    /// <summary>A zone made on the Spark becomes its own Bot in the island's Bot switcher.</summary>
+    private async Task AddSparkZoneBotAsync(string claimId, string? color)
+    {
+        var zone = await ChatStudioRuntime.Shared.ClaimSparkZoneAsync(claimId, _studioLifetime.Token);
+        if (zone == null) return;
+        var hex = color != null && System.Text.RegularExpressions.Regex.IsMatch(color, "^#[0-9A-Fa-f]{6}$")
+            ? color : ZonePalette[AgentStore.Instance.Bots.Count % ZonePalette.Length];
+        AgentStore.Instance.AddAgent(new AgentConfig
+        {
+            Name = zone.Name,
+            BaseUrl = zone.BaseUrl,
+            Model = zone.Model,
+            ApiKey = zone.ApiKey,
+            ColorHex = hex,
+            BotShape = _bot.Config.BotShape,
+        });
+    }
+
     private bool IsStudioAddress(string uri) => Uri.TryCreate(uri, UriKind.Absolute, out var value)
         && value.GetLeftPart(UriPartial.Authority) == _studioOrigin
         && value.AbsolutePath is "/" or "/index.html";
@@ -174,34 +228,71 @@ public partial class ChatWindow
     {
         _studioLoaded = false;
         _studioNavigationPending = false;
-        StudioLoading.Visibility = Visibility.Visible;
+        _studioReady = false;
+        ShowStudioSkeleton();
+        StudioErrorPanel.Visibility = Visibility.Visible;
         StudioLoadMessage.Text = message;
         StudioRetry.Visibility = StudioFallback.Visibility = Visibility.Visible;
     }
 
+    /// <summary>The skeleton covers the browser at once (no fade-in, so no half-painted page shows through).</summary>
+    private void ShowStudioSkeleton()
+    {
+        StudioLoading.BeginAnimation(OpacityProperty, null);
+        StudioLoading.Opacity = 1;
+        StudioLoading.Visibility = Visibility.Visible;
+        StudioLoading.IsHitTestVisible = true;
+    }
+
+    /// <summary>Cross-fades the skeleton away to the already painted page.</summary>
+    private void RevealStudioPage()
+    {
+        if (_studioClosed || _studioReady || StudioErrorPanel.Visibility == Visibility.Visible) return;
+        _studioReady = true;
+        _readyFallbackVersion++;
+        StudioLoading.IsHitTestVisible = false;
+        var fade = new DoubleAnimation(StudioLoading.Opacity, 0, TimeSpan.FromMilliseconds(180))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+        };
+        fade.Completed += (_, _) =>
+        {
+            if (_studioReady) StudioLoading.Visibility = Visibility.Collapsed;
+        };
+        StudioLoading.BeginAnimation(OpacityProperty, fade);
+    }
+
+    /// <summary>A page that never reports ready (an older build) is still revealed shortly after loading.</summary>
+    private async void RevealStudioPageLater()
+    {
+        int version = ++_readyFallbackVersion;
+        await Task.Delay(1500);
+        if (version == _readyFallbackVersion && !_studioReady && _studioLoaded) RevealStudioPage();
+    }
+
+    private static System.Drawing.Color DrawingColor(Brush brush)
+        => brush is SolidColorBrush { Color: var c } ? System.Drawing.Color.FromArgb(255, c.R, c.G, c.B) : System.Drawing.Color.White;
+
     private void StudioViewport_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        double radius = 28 * StudioShell.Width / (BaseCardWidth - 28);
-        if (!double.IsFinite(radius)) radius = 28;
+        const double radius = 28;   // the card's 44 px corner minus the 14 px inset, never scaled
         StudioViewport.Clip = new RectangleGeometry(new Rect(new Point(), e.NewSize), radius, radius);
         // The page's ResizeObserver supplies the new CSS bounds after reflow.
         if (StudioBotAvatar != null) StudioBotAvatar.Visibility = Visibility.Collapsed;
     }
 
-    private void StudioDesign_SizeChanged(object sender, SizeChangedEventArgs e)
-        => Dispatcher.BeginInvoke(SyncStudioBounds, System.Windows.Threading.DispatcherPriority.Loaded);
-
     private void SyncStudioBounds()
     {
-        if (_studioClosed || _foldPhase != FoldPhase.Expanded || StudioOverlay == null || ChatCard.ActualWidth <= 0) return;
+        if (_studioClosed || _foldPhase != FoldPhase.Expanded || StudioOverlay == null) return;
         LayoutExpandedStudio();
     }
 
     private void LayoutExpandedStudio()
     {
-        var transform = ChatCard.TransformToVisual(StudioOverlay);
-        var start = transform.Transform(new Point(14, 14));
-        var end = transform.Transform(new Point(ChatCard.ActualWidth - 14, ChatCard.ActualHeight - 14));
+        // The page sits 14 px inside the card at its real size; nothing is scaled.
+        var card = CardRect;
+        var start = new Point(card.Left + 14, card.Top + 14);
+        var end = new Point(card.Right - 14, card.Bottom - 14);
         var dpi = VisualTreeHelper.GetDpi(StudioOverlay);
         double left = Math.Round(start.X * dpi.DpiScaleX) / dpi.DpiScaleX;
         double top = Math.Round(start.Y * dpi.DpiScaleY) / dpi.DpiScaleY;
@@ -209,7 +300,7 @@ public partial class ChatWindow
         System.Windows.Controls.Canvas.SetTop(StudioShell, top);
         StudioShell.Width = Math.Max(1, Math.Round(end.X * dpi.DpiScaleX) / dpi.DpiScaleX - left);
         StudioShell.Height = Math.Max(1, Math.Round(end.Y * dpi.DpiScaleY) / dpi.DpiScaleY - top);
-        StudioHeaderRow.Height = new GridLength(32 * StudioShell.Width / (BaseCardWidth - 28));
+        StudioHeaderRow.Height = new GridLength(32);
     }
 
     protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
@@ -228,7 +319,7 @@ public partial class ChatWindow
 
     private void PositionStudioAvatar(JsonElement message)
     {
-        if (_foldPhase is FoldPhase.Folding or FoldPhase.Unfolding or FoldPhase.Returning) return;
+        if (_foldPhase != FoldPhase.Expanded) return;
         if (!message.TryGetProperty("botId", out var id) || id.GetString() != _bot.Config.Id) return;
         StudioBotAvatar.Visibility = Visibility.Collapsed;
         if (!message.TryGetProperty("visible", out var visible) || visible.ValueKind != JsonValueKind.True) return;
@@ -269,11 +360,7 @@ public partial class ChatWindow
         catch (InvalidOperationException) { /* Mouse was released before the web message arrived. */ }
     }
 
-    private async void StudioClose_Click(object sender, RoutedEventArgs e)
-    {
-        if (_foldPhase == FoldPhase.Folded) await UnfoldChatAsync();
-        else await FoldChatAsync();
-    }
+    private async void StudioClose_Click(object sender, RoutedEventArgs e) => await DismissToLongIslandAsync();
     private async void StudioRetry_Click(object sender, RoutedEventArgs e) => await OpenStudioAsync();
     private void StudioFallback_Click(object sender, RoutedEventArgs e)
     {

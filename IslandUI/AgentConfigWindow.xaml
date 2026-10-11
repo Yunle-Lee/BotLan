@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:IslandUI"
         xmlns:bots="clr-namespace:IslandUI.Bots"
-        Title="添加 Agent" Width="380" Height="530"
+        Title="添加 Agent" Width="380" Height="556"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ShowInTaskbar="False" Topmost="True">
@@ -45,17 +45,23 @@
                            MouseLeftButtonUp="Close_Click"/>
             </Grid>
 
+            <TextBlock FontFamily="Comic Sans MS" FontSize="11" Margin="0,0,0,8" Cursor="Hand"
+                       Foreground="{Binding BlueDark, Source={x:Static local:ComicTheme.Current}}"
+                       MouseLeftButtonUp="SparkAuto_Click">
+                <Underline>从 DGX Spark 自动配置…</Underline>
+            </TextBlock>
+
             <TextBlock Text="名字" FontFamily="Comic Sans MS" FontSize="11"
                        Foreground="{Binding Muted, Source={x:Static local:ComicTheme.Current}}"/>
-            <TextBox x:Name="NameBox" Style="{StaticResource ComicInput}" Text="Agent"/>
+            <TextBox x:Name="NameBox" Style="{StaticResource ComicInput}" Text="DGX Spark"/>
 
             <TextBlock Text="API 地址（OpenAI 兼容）" FontFamily="Comic Sans MS" FontSize="11" Margin="0,8,0,0"
                        Foreground="{Binding Muted, Source={x:Static local:ComicTheme.Current}}"/>
-            <TextBox x:Name="BaseUrlBox" Style="{StaticResource ComicInput}" Text="https://api.moonshot.cn/v1"/>
+            <TextBox x:Name="BaseUrlBox" Style="{StaticResource ComicInput}" Text="http://127.0.0.1:8091/v1"/>
 
             <TextBlock Text="模型" FontFamily="Comic Sans MS" FontSize="11" Margin="0,8,0,0"
                        Foreground="{Binding Muted, Source={x:Static local:ComicTheme.Current}}"/>
-            <TextBox x:Name="ModelBox" Style="{StaticResource ComicInput}" Text="kimi-k2"/>
+            <TextBox x:Name="ModelBox" Style="{StaticResource ComicInput}" Text="jev-step"/>
 
             <TextBlock Text="API Key" FontFamily="Comic Sans MS" FontSize="11" Margin="0,8,0,0"
                        Foreground="{Binding Muted, Source={x:Static local:ComicTheme.Current}}"/>

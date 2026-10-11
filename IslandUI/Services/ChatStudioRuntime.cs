@@ -22,11 +22,52 @@ internal sealed class ChatStudioRuntime
     private readonly object _idleSync = new();
     private Task<CoreWebView2Environment>? _environment;
     private bool _exiting;
+    private Task? _prewarm;
+
+    /// <summary>
+    /// When set (the running app), closing Chat keeps the one backend warm instead of stopping it
+    /// after 90 s idle, so every reopen is instant. It still stops on app exit.
+    /// </summary>
+    public bool KeepWarm { get; set; }
 
     private ChatStudioRuntime()
     {
         if (Application.Current != null)
             Application.Current.Exit += (_, _) => { _exiting = true; _ = StopAsync(); };
+    }
+
+    /// <summary>
+    /// Creates the shared browser environment and starts the backend (plus a session for the first
+    /// Bot) ahead of the first Chat open. Call on the UI thread; the work itself is asynchronous.
+    /// </summary>
+    public Task PrewarmAsync()
+    {
+        if (_prewarm is { IsCompleted: false }) return _prewarm;
+        return _prewarm = RunPrewarmAsync();
+    }
+
+    private async Task RunPrewarmAsync()
+    {
+        var clock = Stopwatch.StartNew();
+        // The environment is bound to the thread that creates it: the UI thread.
+        var environment = BrowserEnvironmentAsync();
+        var bot = AgentStore.Instance.Bots.FirstOrDefault();
+        Task backend = bot != null
+            ? SessionAsync(bot, CancellationToken.None)
+            : StartBackendAsync();
+        try { await environment; Debug.WriteLine($"[ChatStudioRuntime] prewarm: WebView2 environment {clock.ElapsedMilliseconds} ms"); }
+        catch (Exception ex) { Debug.WriteLine("[ChatStudioRuntime] prewarm: environment failed: " + ex.Message); }
+        try { await backend; Debug.WriteLine($"[ChatStudioRuntime] prewarm: backend ready {clock.ElapsedMilliseconds} ms"); }
+        // Chat shows the real error (with Retry) when it opens; prewarming never surfaces one.
+        catch (Exception ex) { Debug.WriteLine("[ChatStudioRuntime] prewarm: backend failed: " + ex.Message); }
+    }
+
+    private async Task StartBackendAsync()
+    {
+        CancelIdleStop();
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try { await EnsureStartedAsync(CancellationToken.None).ConfigureAwait(false); }
+        finally { _gate.Release(); }
     }
 
     public Task<CoreWebView2Environment> BrowserEnvironmentAsync()
@@ -41,7 +82,7 @@ internal sealed class ChatStudioRuntime
     public void ReleaseWhenIdle()
     {
         CancelIdleStop();
-        if (_exiting) return;
+        if (_exiting || KeepWarm) return;
         var idle = new CancellationTokenSource();
         lock (_idleSync) _idleStop = idle;
         _ = StopAfterIdleAsync(idle);
@@ -101,6 +142,21 @@ internal sealed class ChatStudioRuntime
                 return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "IslandUI", "ChatData");
             return Path.Combine(ChatRoot, ".island-data");
         }
+    }
+
+    public sealed record SparkZoneBot(string Name, string BaseUrl, string Model, string ApiKey);
+
+    /// <summary>Exchanges a one-time zone claim from the page for the zone's Bot config.</summary>
+    public async Task<SparkZoneBot?> ClaimSparkZoneAsync(string claimId, CancellationToken cancellation)
+    {
+        if (_address == null || !Guid.TryParse(claimId, out _)) return null;
+        using var request = new HttpRequestMessage(HttpMethod.Post, _address + "/island/spark-claim");
+        request.Headers.Add("X-Island-Host-Key", _hostKey);
+        request.Content = JsonContent.Create(new { claimId });
+        using var response = await _http.SendAsync(request, cancellation);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<SparkZoneBot>(
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }, cancellation);
     }
 
     public async Task<StudioSession> SessionAsync(AgentBot selected, CancellationToken cancellation)

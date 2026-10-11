@@ -20,6 +20,8 @@ public sealed class IslandSettings : INotifyPropertyChanged
     private bool _showClock;
     private double _themeValue;   // 0=浅色 1=深色,渐进调节(明暗滑块)
     private string _mode = "small";  // 四种形态同一时刻只显示一个: small / long
+    private double _chatWidth = 716;   // Chat 卡片的实际宽高(拖拽卡片边缘),由 ChatWindow 按屏幕限定
+    private double _chatHeight = 540;
 
     public static IslandSettings Instance { get; } = new();
 
@@ -48,6 +50,27 @@ public sealed class IslandSettings : INotifyPropertyChanged
     }
     public string Mode { get => _mode; set => Set(ref _mode, value); }
 
+    /// <summary>Chat 卡片宽度(DIP);ChatWindow 按屏幕再夹到 [最小, 最大] 之间.</summary>
+    public double ChatWidth { get => _chatWidth; set => Set(ref _chatWidth, ClampSize(value, 716)); }
+    /// <summary>Chat 卡片高度(DIP).</summary>
+    public double ChatHeight { get => _chatHeight; set => Set(ref _chatHeight, ClampSize(value, 540)); }
+
+    /// <summary>Stores both card dimensions with a single save.</summary>
+    public void SetChatSize(double width, double height)
+    {
+        width = ClampSize(width, 716);
+        height = ClampSize(height, 540);
+        if (width == _chatWidth && height == _chatHeight) return;
+        _chatWidth = width;
+        _chatHeight = height;
+        Save();
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ChatWidth)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ChatHeight)));
+    }
+
+    private static double ClampSize(double value, double fallback)
+        => double.IsFinite(value) ? Math.Clamp(Math.Round(value), 200, 10000) : fallback;
+
     private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value)) return;
@@ -73,6 +96,20 @@ public sealed class IslandSettings : INotifyPropertyChanged
             else if (Get(d, nameof(DarkTheme)) is { } t) _themeValue = t ? 1 : 0;
             if (d.TryGetValue(nameof(Mode), out var m2) && m2.ValueKind == JsonValueKind.String)
                 _mode = m2.GetString() ?? "small";
+            if (d.TryGetValue(nameof(ChatWidth), out var cw) && cw.ValueKind == JsonValueKind.Number
+                && d.TryGetValue(nameof(ChatHeight), out var ch) && ch.ValueKind == JsonValueKind.Number)
+            {
+                _chatWidth = ClampSize(cw.GetDouble(), 716);
+                _chatHeight = ClampSize(ch.GetDouble(), 540);
+            }
+            // Older builds stored a uniform zoom of the 716x540 card: keep the same on-screen size.
+            else if (d.TryGetValue("ChatScale", out var cs) && cs.ValueKind == JsonValueKind.Number
+                && double.IsFinite(cs.GetDouble()))
+            {
+                double scale = Math.Clamp(cs.GetDouble(), 0.3, 3);
+                _chatWidth = ClampSize(716 * scale, 716);
+                _chatHeight = ClampSize(540 * scale, 540);
+            }
         }
         catch
         {
@@ -98,6 +135,8 @@ public sealed class IslandSettings : INotifyPropertyChanged
                 [nameof(ShowClock)] = ShowClock,
                 [nameof(ThemeValue)] = ThemeValue,
                 [nameof(Mode)] = Mode,
+                [nameof(ChatWidth)] = ChatWidth,
+                [nameof(ChatHeight)] = ChatHeight,
             };
             File.WriteAllText(StorePath, JsonSerializer.Serialize(d));
         }

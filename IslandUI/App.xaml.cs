@@ -16,6 +16,22 @@ public partial class App : Application
         base.OnStartup(e);
         SetupTrayIcon();
         OpenCurrentMode();
+        // Reopen the SSH tunnel for each saved Spark (off the UI thread).
+        Task.Run(Services.SparkTunnelService.Instance.StartAll);
+        // Pre-warm Chat once the island is on screen and the UI is idle: the browser environment
+        // and the one backend are ready before the first open, and stay warm while the app runs.
+        Dispatcher.BeginInvoke(() =>
+        {
+            try
+            {
+                Services.ChatStudioRuntime.Shared.KeepWarm = true;
+                _ = Services.ChatStudioRuntime.Shared.PrewarmAsync();
+            }
+            catch (Exception ex) when (ex is TypeInitializationException or System.IO.IOException)
+            {
+                // No Chat folder next to this build: Chat reports it when opened.
+            }
+        }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
 #if DEBUG
         // Let a development restart open the changed Chat directly, without UI automation.
@@ -59,6 +75,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        Services.SparkTunnelService.Instance.StopAll();
         if (_trayIcon != null)
         {
             _trayIcon.Visible = false;
@@ -84,6 +101,8 @@ public partial class App : Application
         smallItem.Click += (_, _) => Dispatcher.Invoke(() => IslandSettings.Instance.Mode = "small");
         var longItem = new ToolStripMenuItem("长岛（Agents）");
         longItem.Click += (_, _) => Dispatcher.Invoke(() => IslandSettings.Instance.Mode = "long");
+        var sparkItem = new ToolStripMenuItem("连接 DGX Spark…");
+        sparkItem.Click += (_, _) => Dispatcher.Invoke(SparkConnectWindow.ShowSingleton);
         var settingsItem = new ToolStripMenuItem("设置");
         settingsItem.Click += (_, _) => Dispatcher.Invoke(IslandSettingsWindow.ShowSingleton);
         var exitItem = new ToolStripMenuItem("退出");
@@ -91,6 +110,7 @@ public partial class App : Application
 
         menu.Items.Add(smallItem);
         menu.Items.Add(longItem);
+        menu.Items.Add(sparkItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(settingsItem);
         menu.Items.Add(exitItem);

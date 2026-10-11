@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:bots="clr-namespace:IslandUI.Bots"
         xmlns:local="clr-namespace:IslandUI"
-        Title="Chat" Width="1036" Height="800" MinWidth="640" MinHeight="500"
+        Title="Chat" Width="1036" Height="800"
         WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="NoResize"
         AllowsTransparency="True"
         Background="Transparent"
@@ -14,16 +14,15 @@
         <local:UserToBubbleRadiusConverter x:Key="UserToBubbleRadius"/>
     </Window.Resources>
 
-    <Grid ClipToBounds="True">
-        <Viewbox x:Name="DesignViewbox" Stretch="Uniform" StretchDirection="DownOnly"
-                 SizeChanged="StudioDesign_SizeChanged">
-            <Canvas x:Name="DesignCanvas" Width="1036" Height="800">
+    <!-- Rendered at scale 1 (system DPI only). The window is the card plus fixed margins for the
+         grips, shadow and the upper-right rail; resizing changes the card, never a zoom. -->
+    <Grid x:Name="RootGrid" ClipToBounds="True">
+            <Canvas x:Name="DesignCanvas">
                 <!-- Only this fixed upper-right arc is visible and owns wheel input. -->
-                <Canvas x:Name="OrbitLayer" Width="1036" Height="800"
-                        PreviewMouseWheel="Orbit_MouseWheel">
+                <Canvas x:Name="OrbitLayer" PreviewMouseWheel="Orbit_MouseWheel">
                     <Path x:Name="OrbitWheelSurface" Fill="#01000000" Stretch="None"/>
-                    <Canvas x:Name="OrbitFadeLeading" Width="1036" Height="800">
-                        <Canvas x:Name="OrbitItems" Width="1036" Height="800"/>
+                    <Canvas x:Name="OrbitFadeLeading">
+                        <Canvas x:Name="OrbitItems"/>
                     </Canvas>
                 </Canvas>
 
@@ -146,15 +145,9 @@
                     </Grid>
                 </Border>
             </Canvas>
-        </Viewbox>
-        <!-- Native-size page, outside the scaled illustration/rail. Bounds follow ChatCard. -->
+        <!-- Native-size page. Bounds follow ChatCard. -->
         <Canvas x:Name="StudioOverlay" UseLayoutRounding="True" SnapsToDevicePixels="True">
-                    <Border x:Name="FoldCapsule" Visibility="Collapsed" IsHitTestVisible="False"
-                            Background="{Binding Card, Source={x:Static local:ComicTheme.Current}}"
-                            BorderBrush="{Binding Outline, Source={x:Static local:ComicTheme.Current}}" BorderThickness="2.2">
-                        <Border.Effect><DropShadowEffect BlurRadius="10" ShadowDepth="3" Opacity="0.14"/></Border.Effect>
-                    </Border>
-                    <Grid x:Name="StudioShell" Canvas.Left="199" Canvas.Top="154" Width="688" Height="512"
+                    <Grid x:Name="StudioShell" Canvas.Left="32" Canvas.Top="104" Width="688" Height="512"
                           TextOptions.TextFormattingMode="Display">
                         <Grid.RowDefinitions>
                             <RowDefinition x:Name="StudioHeaderRow" Height="32"/>
@@ -170,7 +163,7 @@
                                            IsHitTestVisible="False"/>
                                 <Button x:Name="StudioCloseButton" Content="✕" HorizontalAlignment="Right" Width="26" Height="26"
                                         Background="Transparent" Foreground="#CF3838" BorderThickness="0"
-                                        Cursor="Hand" Click="StudioClose_Click" ToolTip="折叠 Chat"/>
+                                        Cursor="Hand" Click="StudioClose_Click" ToolTip="收起到 Long Island"/>
                             </Grid>
                         </Border>
                         <Grid x:Name="StudioViewport" Grid.Row="1" SizeChanged="StudioViewport_SizeChanged">
@@ -179,16 +172,82 @@
                                 <bots:BotView x:Name="StudioBotAvatar" Visibility="Collapsed" Liveliness="True"
                                               GazeYaw="-12" GazePitch="4"/>
                             </Canvas>
-                            <Border x:Name="StudioLoading" Background="{Binding Card, Source={x:Static local:ComicTheme.Current}}">
-                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460" Margin="24">
-                                    <TextBlock x:Name="StudioLoadMessage" Text="正在打开 AI Studio…" FontSize="16" TextWrapping="Wrap"
-                                               TextAlignment="Center" Foreground="{Binding Ink, Source={x:Static local:ComicTheme.Current}}"/>
-                                    <Button x:Name="StudioRetry" Content="重新连接" Margin="0,16,0,0" Padding="16,8"
-                                            Visibility="Collapsed" Click="StudioRetry_Click"/>
-                                    <Button x:Name="StudioFallback" Content="暂用原对话窗口" Margin="0,8,0,0" Padding="16,8"
-                                            Visibility="Collapsed" Click="StudioFallback_Click"/>
-                                </StackPanel>
-                            </Border>
+                            <!-- Skeleton of the page (left dock, right docks, composer) until the page
+                                 reports ready, then cross-faded away. -->
+                            <Grid x:Name="StudioLoading" Background="{Binding Card, Source={x:Static local:ComicTheme.Current}}">
+                                <Grid x:Name="StudioSkeleton" IsHitTestVisible="False">
+                                    <Grid.Resources>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{Binding CardSoft, Source={x:Static local:ComicTheme.Current}}"/>
+                                        </Style>
+                                        <Style TargetType="Rectangle">
+                                            <Setter Property="Fill" Value="{Binding CardSoft, Source={x:Static local:ComicTheme.Current}}"/>
+                                            <Setter Property="RadiusX" Value="5"/>
+                                            <Setter Property="RadiusY" Value="5"/>
+                                        </Style>
+                                    </Grid.Resources>
+                                    <!-- Left identity dock -->
+                                    <StackPanel HorizontalAlignment="Left" Width="44" Margin="8,6,0,0">
+                                        <Ellipse Width="38" Height="38"/>
+                                        <Ellipse Width="30" Height="30" Margin="0,28,0,0"/>
+                                        <Rectangle Width="38" Height="9" Margin="0,8,0,0"/>
+                                        <Rectangle Width="26" Height="7" Margin="0,4,0,0"/>
+                                        <Ellipse Width="28" Height="28" Margin="0,12,0,0"/>
+                                        <Ellipse Width="28" Height="28" Margin="0,12,0,0"/>
+                                        <Ellipse Width="28" Height="28" Margin="0,12,0,0"/>
+                                    </StackPanel>
+                                    <!-- Right action docks -->
+                                    <StackPanel HorizontalAlignment="Right" Width="44" Margin="0,8,6,0">
+                                        <Border Height="84" CornerRadius="22" BorderThickness="2"
+                                                BorderBrush="{Binding CardSoft, Source={x:Static local:ComicTheme.Current}}">
+                                            <StackPanel VerticalAlignment="Center">
+                                                <Ellipse Width="26" Height="26"/>
+                                                <Ellipse Width="20" Height="20" Margin="0,12,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Height="200" CornerRadius="22" BorderThickness="2" Margin="0,8,0,0"
+                                                BorderBrush="{Binding CardSoft, Source={x:Static local:ComicTheme.Current}}">
+                                            <StackPanel VerticalAlignment="Center">
+                                                <Ellipse Width="20" Height="20"/>
+                                                <Ellipse Width="20" Height="20" Margin="0,16,0,0"/>
+                                                <Ellipse Width="20" Height="20" Margin="0,16,0,0"/>
+                                                <Ellipse Width="20" Height="20" Margin="0,16,0,0"/>
+                                                <Ellipse Width="20" Height="20" Margin="0,16,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <!-- Central welcome block -->
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="64,0,64,60">
+                                        <Rectangle Width="220" Height="22" RadiusX="11" RadiusY="11"/>
+                                        <Rectangle Width="250" Height="10" Margin="0,18,0,0"/>
+                                        <Rectangle Width="180" Height="10" Margin="0,8,0,0"/>
+                                        <Rectangle Width="270" Height="30" RadiusX="15" RadiusY="15" Margin="0,26,0,0"/>
+                                        <Rectangle Width="270" Height="30" RadiusX="15" RadiusY="15" Margin="0,8,0,0"/>
+                                        <Rectangle Width="270" Height="30" RadiusX="15" RadiusY="15" Margin="0,8,0,0"/>
+                                    </StackPanel>
+                                    <!-- Composer pill -->
+                                    <Border VerticalAlignment="Bottom" Height="44" CornerRadius="22" Margin="64,0,64,6"
+                                            BorderThickness="2" MaxWidth="560"
+                                            BorderBrush="{Binding ComposerLine, Source={x:Static local:ComicTheme.Current}}">
+                                        <Grid Margin="14,0,6,0">
+                                            <Rectangle Width="160" Height="10" HorizontalAlignment="Left" Margin="26,0,0,0"/>
+                                            <Ellipse Width="30" Height="30" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                                <!-- Only shown when opening fails. -->
+                                <Border x:Name="StudioErrorPanel" Visibility="Collapsed"
+                                        Background="{Binding Card, Source={x:Static local:ComicTheme.Current}}">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460" Margin="24">
+                                        <TextBlock x:Name="StudioLoadMessage" Text="正在打开 AI Studio…" FontSize="16" TextWrapping="Wrap"
+                                                   TextAlignment="Center" Foreground="{Binding Ink, Source={x:Static local:ComicTheme.Current}}"/>
+                                        <Button x:Name="StudioRetry" Content="重新连接" Margin="0,16,0,0" Padding="16,8"
+                                                Visibility="Collapsed" Click="StudioRetry_Click"/>
+                                        <Button x:Name="StudioFallback" Content="暂用原对话窗口" Margin="0,8,0,0" Padding="16,8"
+                                                Visibility="Collapsed" Click="StudioFallback_Click"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
                         </Grid>
                     </Grid>
         </Canvas>

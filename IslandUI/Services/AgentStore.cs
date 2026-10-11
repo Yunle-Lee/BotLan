@@ -19,14 +19,16 @@ public sealed class AgentConfig
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
     public string Name { get; set; } = "Agent";
-    public string BaseUrl { get; set; } = "https://api.moonshot.cn/v1";
-    public string Model { get; set; } = "kimi-k2";
+    public string BaseUrl { get; set; } = "http://127.0.0.1:8091/v1";
+    public string Model { get; set; } = "jev-step";
     public string ApiKey { get; set; } = "";
     public string ColorHex { get; set; } = "#3ECF8E";
     public string BotShape { get; set; } = "cercle";
     public string BotExpression { get; set; } = "neutre";
     /// <summary>"quota" shows remaining API allowance on the ring; "status" shows work state.</summary>
     public string RingMode { get; set; } = "status";
+    /// <summary>Set when the Bot came from "连接 DGX Spark"; its BaseUrl follows that tunnel's local port.</summary>
+    public string? SparkConnectionId { get; set; }
 }
 
 /// <summary>A live agent bot on the long island.</summary>
@@ -102,6 +104,23 @@ public sealed class AgentStore
         Bots.Add(bot);
         Save();
         return bot;
+    }
+
+    /// <summary>True when a Bot with the same endpoint and key already exists.</summary>
+    public bool HasAgent(string baseUrl, string apiKey)
+        => Bots.Any(b => string.Equals(b.Config.BaseUrl.TrimEnd('/'), baseUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)
+                         && b.Config.ApiKey == apiKey);
+
+    /// <summary>Points a Spark connection's Bots at its tunnel's current URL (local port changed).</summary>
+    public void RetargetSparkBots(string connectionId, string newBaseUrl)
+    {
+        bool changed = false;
+        foreach (var c in Bots.Select(b => b.Config).Where(c => c.SparkConnectionId == connectionId && c.BaseUrl != newBaseUrl))
+        {
+            c.BaseUrl = newBaseUrl;
+            changed = true;
+        }
+        if (changed) Save();
     }
 
     public void RemoveAgent(AgentBot bot)

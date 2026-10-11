@@ -23,13 +23,6 @@ public sealed class ChatMessage
 /// <summary>Single focused chat surrounded by the rest of the user's Bot pods.</summary>
 public partial class ChatWindow : Window
 {
-    private const double DesignWidth = 1036;
-    private const double DesignHeight = 800;
-    private const double BaseCardWidth = 716;
-    private const double BaseCardHeight = 540;
-    private const double BaseCardOffsetX = 25;
-    private const double BaseCardOffsetY = 10;
-
     private static ChatWindow? Current;
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
 
@@ -43,7 +36,6 @@ public partial class ChatWindow : Window
     {
         if (Current is { IsLoaded: true } existing)
         {
-            _ = existing.UnfoldChatAsync();
             existing.SelectBot(bot);
             existing.RevealCarouselBot(bot);
             existing.Activate();
@@ -60,9 +52,14 @@ public partial class ChatWindow : Window
     {
         _bot = bot;
         _sourceWindow = sourceWindow;
+        _openClock.Start();
         InitializeComponent();
-        Width = Math.Min(DesignWidth, SystemParameters.WorkArea.Width);
-        Height = Math.Min(DesignHeight, SystemParameters.WorkArea.Height);
+        CreateResizeGrips();
+        var size = ClampCardSize(new Size(IslandSettings.Instance.ChatWidth, IslandSettings.Instance.ChatHeight));
+        ApplyCardSize(size);
+        var window = WindowSizeFor(size);
+        Width = window.Width;
+        Height = window.Height;
         Messages.ItemsSource = _messages;
         ApplyBot(bot);
         UpdateEmptyState();
@@ -136,21 +133,23 @@ public partial class ChatWindow : Window
 
     private void ChatWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        StudioTiming("window loaded");
         RefreshOrbitBots();
         SyncStudioBounds();
+        PlayOpenAnimation();
         _ = OpenStudioAsync();
     }
 
     private void ChatWindow_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (IsLoaded && _foldPhase == FoldPhase.Expanded) RefreshOrbitBots();
-    }
-
-    private void OrbitBot_Click(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is not FrameworkElement { DataContext: AgentBot bot }) return;
-        e.Handled = true;
-        SelectBot(bot);
+        if (!IsLoaded || _foldPhase != FoldPhase.Expanded) return;
+        // A size set from outside a grip drag (tests, DPI changes) resizes the card, never zooms.
+        var expected = WindowSizeFor(_cardSize);
+        if (_resizeEdges == ResizeEdges.None
+            && (Math.Abs(e.NewSize.Width - expected.Width) > .5 || Math.Abs(e.NewSize.Height - expected.Height) > .5))
+            ApplyCardSize(ClampCardSize(new Size(e.NewSize.Width - CardMarginLeft - CardMarginRight,
+                e.NewSize.Height - CardMarginTop - CardMarginBottom)));
+        else SyncStudioBounds();
     }
 
     private void SelectBot(AgentBot bot)
@@ -295,5 +294,5 @@ public partial class ChatWindow : Window
         base.OnClosed(e);
     }
 
-    private async void Close_Click(object sender, MouseButtonEventArgs e) => await FoldChatAsync();
+    private async void Close_Click(object sender, MouseButtonEventArgs e) => await DismissToLongIslandAsync();
 }

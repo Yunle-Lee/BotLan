@@ -6,23 +6,50 @@ namespace IslandUI.Controls;
 internal readonly record struct OrbitPose(Point Point, Vector Tangent);
 internal readonly record struct OrbitTabSlot(double Start, double Length, double AvatarAt);
 
-/// <summary>A fixed upper-right viewport onto a cyclic belt of equal-width Bot tabs.</summary>
+/// <summary>
+/// A fixed upper-right viewport onto a cyclic belt of equal-width Bot tabs. The viewport is
+/// defined relative to the card's upper-right corner only, so it keeps its exact size and
+/// shape when the card is resized. At rest it shows exactly <see cref="VisibleTabs"/> tabs:
+/// one before the corner, one at the corner and one after it.
+/// </summary>
 internal sealed class BotOrbitLayout
 {
     public const double CardRadius = 44;
     public const double CardGap = 16;
+    public const int VisibleTabs = 3;
     public double BandWidth => 64;
     public double OutlineWidth => 3;
-    public double TabLength => 256;
+    public double TabLength => 224;
     public double Gap => 16;
+    /// <summary>Number of belt items (Bots plus "待创建" placeholders).</summary>
     public int BotCount { get; }
     public RoundedOrbit Track { get; }
     public double ViewportStart { get; }
     public double ViewportEnd { get; }
     public double FocusDistance => Track.CornerCenters[1];
-    public double Pitch { get; }
+    /// <summary>Constant spacing: a tab, its two round caps and one gap.</summary>
+    public double Pitch => TabLength + BandWidth + Gap;
     public double CycleLength => Math.Max(1, BotCount) * Pitch;
+    /// <summary>The belt only turns when there are more items than visible slots.</summary>
+    public bool Scrolls => BotCount > VisibleTabs;
     public PathGeometry ViewportClip { get; }
+
+    /// <summary>Length of the fade at each end of the viewport, beyond the resting tabs.</summary>
+    public const double FadeLength = 16;
+    /// <summary>Half the viewport length: the neighbour tab, its round cap and the fade.</summary>
+    public double ViewportHalf => Pitch + TabLength / 2 + BandWidth / 2 + FadeLength;
+
+    /// <summary>Smallest card for which the viewport stays on the top and right straights.</summary>
+    public static Size MinimumCard
+    {
+        get
+        {
+            double offset = CardGap + 64 / 2.0, radius = CardRadius + offset;
+            double straight = (224 + 64 + 16) + 224 / 2.0 + 64 / 2.0 + FadeLength - radius * Math.PI / 4;
+            double side = Math.Ceiling(straight + radius * 2 - offset * 2);
+            return new Size(side, side);
+        }
+    }
 
     public BotOrbitLayout(Rect card, int count)
     {
@@ -31,31 +58,30 @@ internal sealed class BotOrbitLayout
         var bounds = card;
         bounds.Inflate(offset, offset);
         Track = new RoundedOrbit(bounds, CardRadius + offset);
-        ViewportStart = Track.StraightLengths[0] - 390;
-        ViewportEnd = Track.StraightStarts[1] + 310;
-        // Sparse sets must not show the same Bot twice at opposite ends of the viewport.
-        double minimumCycle = ViewportEnd - ViewportStart + TabLength + BandWidth * 2 + Gap * 2;
-        Pitch = Math.Max(TabLength + BandWidth + Gap, minimumCycle / Math.Max(1, count));
+        ViewportStart = FocusDistance - ViewportHalf;
+        ViewportEnd = FocusDistance + ViewportHalf;
         ViewportClip = Widen(Track.Slice(ViewportStart, ViewportEnd - ViewportStart), BandWidth + 12);
     }
 
     public IEnumerable<(int BotIndex, OrbitTabSlot Slot)> VisibleSlots(double offset)
     {
         if (BotCount == 0) yield break;
-        if (BotCount == 1)
-        {
-            yield return (0, SlotAt(FocusDistance));
-            yield break;
-        }
         offset = NormalizeOffset(offset);
-        double margin = TabLength / 2 + BandWidth + 8;
+        // Only slots whose body (tab plus round caps) can reach the viewport.
+        double margin = TabLength / 2 + BandWidth / 2 + 2;
         long first = (long)Math.Ceiling((ViewportStart - margin - FocusDistance - offset) / Pitch);
         long last = (long)Math.Floor((ViewportEnd + margin - FocusDistance - offset) / Pitch);
+        // With fewer items than slots the same item could appear twice; keep the one nearest the corner.
+        var nearest = new Dictionary<int, double>();
         for (long ordinal = first; ordinal <= last; ordinal++)
         {
             int botIndex = (int)((ordinal % BotCount + BotCount) % BotCount);
-            yield return (botIndex, SlotAt(FocusDistance + ordinal * Pitch + offset));
+            double center = ordinal * Pitch + offset;
+            if (!nearest.TryGetValue(botIndex, out var existing) || Math.Abs(center) < Math.Abs(existing))
+                nearest[botIndex] = center;
         }
+        foreach (var (botIndex, center) in nearest.OrderBy(pair => pair.Value))
+            yield return (botIndex, SlotAt(FocusDistance + center));
     }
 
     private OrbitTabSlot SlotAt(double center) => new(center - TabLength / 2, TabLength, center);

@@ -69,6 +69,7 @@ public partial class LongIslandWindow : Window
             if (_subscribedBots.Add(bot))
                 bot.PropertyChanged += OnBotChanged;
         }
+        SparkCta.Visibility = current.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnBotsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -180,6 +181,12 @@ public partial class LongIslandWindow : Window
     private void AddAgent_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
         => AgentConfigWindow.ShowSingleton();
 
+    private void SparkCta_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        => SparkConnectWindow.ShowSingleton();
+
+    private void SparkMenuItem_Click(object sender, RoutedEventArgs e)
+        => SparkConnectWindow.ShowSingleton();
+
     private void Gear_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
         => IslandSettingsWindow.ShowSingleton();
 
@@ -202,6 +209,7 @@ public partial class LongIslandWindow : Window
             if (el.DataContext is AgentBot) return;
             if (el is Controls.ThemeSlider) return;
             if (el is TextBlock tb && tb.Text == "+") return;
+            if (el == SparkCta || el.IsDescendantOf(SparkCta)) return;
         }
 
         // 双击空白处变回小岛

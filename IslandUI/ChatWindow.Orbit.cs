@@ -10,9 +10,16 @@ namespace IslandUI;
 
 public partial class ChatWindow
 {
-    private readonly List<AgentBot> _orbitBots = [];
-    private readonly Dictionary<AgentBot, CurvedBotTab> _carouselTabs = [];
+    /// <summary>One belt entry: a real Bot, or a "待创建" placeholder (Bot == null) filling an empty slot.</summary>
+    private sealed record OrbitItem(AgentBot? Bot, int Slot);
+
+    /// <summary>Opens the Bot configuration window. Replaceable so tests never show a real window.</summary>
+    internal static Action OpenBotConfig = AgentConfigWindow.ShowSingleton;
+
+    private readonly List<OrbitItem> _orbitItems = [];
+    private readonly Dictionary<OrbitItem, CurvedBotTab> _carouselTabs = [];
     private BotOrbitLayout? _carouselLayout;
+    private Rect _carouselCard;
     private bool _updatingOrbit;
     private bool _carouselClosed;
     private double _targetOffset;
@@ -28,6 +35,14 @@ public partial class ChatWindow
         set => SetValue(CarouselOffsetProperty, value);
     }
 
+    /// <summary>Real Bots first, then placeholders until <see cref="BotOrbitLayout.VisibleTabs"/> slots are filled.</summary>
+    private static List<OrbitItem> BuildOrbitItems(IReadOnlyList<AgentBot> bots)
+    {
+        var items = bots.Select((bot, i) => new OrbitItem(bot, i)).ToList();
+        for (int i = items.Count; i < BotOrbitLayout.VisibleTabs; i++) items.Add(new OrbitItem(null, i));
+        return items;
+    }
+
     private void RefreshOrbitBots()
     {
         if (!Dispatcher.CheckAccess())
@@ -39,44 +54,50 @@ public partial class ChatWindow
 
         var bots = AgentStore.Instance.Bots.ToList();
         SyncBotSubscriptions(bots);
+        var items = BuildOrbitItems(bots);
         // Selection changes Chat, never the order or position-based brightness of the labels.
-        bool changed = !_orbitBots.SequenceEqual(bots);
+        bool changed = !_orbitItems.SequenceEqual(items);
+        var card = CardRect;
+        bool resized = _carouselCard != card;
         _updatingOrbit = true;
         try
         {
-            var card = new Rect((DesignWidth - BaseCardWidth) / 2 + BaseCardOffsetX,
-                (DesignHeight - BaseCardHeight) / 2 + BaseCardOffsetY,
-                BaseCardWidth, BaseCardHeight);
-            ChatCard.Width = card.Width;
-            ChatCard.Height = card.Height;
-            ChatCard.CornerRadius = new CornerRadius(BotOrbitLayout.CardRadius);
-            Canvas.SetLeft(ChatCard, card.Left);
-            Canvas.SetTop(ChatCard, card.Top);
-
-            if (_carouselLayout == null || changed)
+            if (_carouselLayout == null || changed || resized)
             {
-                _scrollGeneration++;
-                BeginAnimation(CarouselOffsetProperty, null);
-                _orbitBots.Clear();
-                _orbitBots.AddRange(bots);
-                ClearCarouselTabs();
-                _carouselLayout = new BotOrbitLayout(card, bots.Count);
+                _carouselCard = card;
+                if (changed)
+                {
+                    _scrollGeneration++;
+                    BeginAnimation(CarouselOffsetProperty, null);
+                    _orbitItems.Clear();
+                    _orbitItems.AddRange(items);
+                    ClearCarouselTabs();
+                }
+                // The viewport is defined from the card's upper-right corner, so a resize keeps
+                // its size; only the belt behind it is rebuilt.
+                _carouselLayout = new BotOrbitLayout(card, _orbitItems.Count);
+                OrbitLayer.Width = OrbitFadeLeading.Width = OrbitItems.Width = DesignCanvas.Width;
+                OrbitLayer.Height = OrbitFadeLeading.Height = OrbitItems.Height = DesignCanvas.Height;
                 OrbitLayer.Clip = _carouselLayout.ViewportClip;
                 OrbitWheelSurface.Data = _carouselLayout.ViewportClip;
-                OrbitWheelSurface.Visibility = bots.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+                OrbitWheelSurface.Visibility = _carouselLayout.Scrolls ? Visibility.Visible : Visibility.Collapsed;
 
+                // Soft ends only where tabs enter and leave; resting tabs stay fully opaque.
                 var entry = _carouselLayout.Track.At(_carouselLayout.ViewportStart).Point;
                 var exit = _carouselLayout.Track.At(_carouselLayout.ViewportEnd).Point;
                 OrbitFadeLeading.OpacityMask = new LinearGradientBrush(Colors.Transparent, Colors.White,
-                    new Point(entry.X - 38, 0), new Point(entry.X + 30, 0))
+                    new Point(entry.X - 8, 0), new Point(entry.X + BotOrbitLayout.FadeLength, 0))
                     { MappingMode = BrushMappingMode.Absolute };
                 OrbitItems.OpacityMask = new LinearGradientBrush(Colors.White, Colors.Transparent,
-                    new Point(0, exit.Y - 30), new Point(0, exit.Y + 38))
+                    new Point(0, exit.Y - BotOrbitLayout.FadeLength), new Point(0, exit.Y + 8))
                     { MappingMode = BrushMappingMode.Absolute };
 
-                int selectedIndex = Math.Max(0, _orbitBots.IndexOf(_bot));
-                _targetOffset = -selectedIndex * _carouselLayout.Pitch;
-                CarouselOffset = _targetOffset;
+                if (changed)
+                {
+                    int selectedIndex = Math.Max(0, _orbitItems.FindIndex(item => ReferenceEquals(item.Bot, _bot)));
+                    _targetOffset = _carouselLayout.NormalizeOffset(-selectedIndex * _carouselLayout.Pitch);
+                    CarouselOffset = _targetOffset;
+                }
             }
         }
         finally { _updatingOrbit = false; }
@@ -87,34 +108,51 @@ public partial class ChatWindow
     private void RenderCarousel()
     {
         if (_updatingOrbit || _carouselClosed || _carouselLayout == null || _foldPhase != FoldPhase.Expanded) return;
-        var visible = new HashSet<AgentBot>();
+        var visible = new HashSet<OrbitItem>();
         foreach (var placement in _carouselLayout.VisibleSlots(CarouselOffset))
         {
-            var bot = _orbitBots[placement.BotIndex];
-            visible.Add(bot);
-            if (!_carouselTabs.TryGetValue(bot, out var tab))
+            var item = _orbitItems[placement.BotIndex];
+            visible.Add(item);
+            if (!_carouselTabs.TryGetValue(item, out var tab))
             {
-                tab = new CurvedBotTab(bot) { Width = DesignWidth, Height = DesignHeight };
+                tab = new CurvedBotTab(item.Bot) { Width = DesignCanvas.Width, Height = DesignCanvas.Height };
                 tab.MouseLeftButtonUp += OrbitBot_Click;
-                _carouselTabs.Add(bot, tab);
+                _carouselTabs.Add(item, tab);
                 OrbitItems.Children.Add(tab);
             }
-            tab.Place(_carouselLayout, placement.Slot, ReferenceEquals(bot, _bot));
+            else
+            {
+                tab.Width = DesignCanvas.Width;
+                tab.Height = DesignCanvas.Height;
+            }
+            tab.Place(_carouselLayout, placement.Slot, item.Bot != null && ReferenceEquals(item.Bot, _bot));
         }
 
-        foreach (var bot in _carouselTabs.Keys.Where(bot => !visible.Contains(bot)).ToArray())
+        foreach (var item in _carouselTabs.Keys.Where(item => !visible.Contains(item)).ToArray())
         {
-            var tab = _carouselTabs[bot];
+            var tab = _carouselTabs[item];
             tab.MouseLeftButtonUp -= OrbitBot_Click;
             OrbitItems.Children.Remove(tab);
-            _carouselTabs.Remove(bot);
+            _carouselTabs.Remove(item);
         }
+    }
+
+    private void OrbitBot_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not CurvedBotTab tab) return;
+        e.Handled = true;
+        if (tab.IsPlaceholder)
+        {
+            OpenBotConfig();
+            return;
+        }
+        if (tab.DataContext is AgentBot bot) SelectBot(bot);
     }
 
     private void Orbit_MouseWheel(object sender, MouseWheelEventArgs e)
     {
         e.Handled = true;
-        if (_foldPhase != FoldPhase.Expanded || _carouselLayout == null || _orbitBots.Count < 2 || e.Delta == 0) return;
+        if (_foldPhase != FoldPhase.Expanded || _carouselLayout is not { Scrolls: true } || e.Delta == 0) return;
         AnimateCarouselTo(_targetOffset + e.Delta / 120.0 * _carouselLayout.Pitch);
     }
 
@@ -130,7 +168,7 @@ public partial class ChatWindow
         };
         animation.Completed += (_, _) =>
         {
-            if (generation != _scrollGeneration || _carouselClosed) return;
+            if (generation != _scrollGeneration || _carouselClosed || _carouselLayout == null) return;
             // Normalize after each turn without changing visible positions.
             _updatingOrbit = true;
             double normalized = _carouselLayout.NormalizeOffset(target);
@@ -146,18 +184,21 @@ public partial class ChatWindow
 
     private void SelectCarouselBotAtCorner()
     {
-        if (_carouselClosed || _carouselLayout == null || _orbitBots.Count == 0) return;
-        // The existing belt is unchanged: only commit selection when its latest
-        // movement settles. Partial wheel detents choose the nearest corner tab.
+        if (_carouselClosed || _carouselLayout == null || _orbitItems.Count == 0) return;
+        // Only commit selection when the latest movement settles. Partial wheel detents choose
+        // the nearest corner tab; placeholders are never selected.
         var closest = _carouselLayout.VisibleSlots(CarouselOffset)
-            .MinBy(placement => Math.Abs(placement.Slot.AvatarAt - _carouselLayout.FocusDistance));
-        SelectBot(_orbitBots[closest.BotIndex]);
+            .Where(placement => _orbitItems[placement.BotIndex].Bot != null)
+            .OrderBy(placement => Math.Abs(placement.Slot.AvatarAt - _carouselLayout.FocusDistance))
+            .Select(placement => _orbitItems[placement.BotIndex].Bot)
+            .FirstOrDefault();
+        if (closest != null) SelectBot(closest);
     }
 
     private void RevealCarouselBot(AgentBot bot)
     {
-        if (_carouselLayout == null || _orbitBots.Count < 2) return;
-        int index = _orbitBots.IndexOf(bot);
+        if (_carouselLayout is not { Scrolls: true }) return;
+        int index = _orbitItems.FindIndex(item => ReferenceEquals(item.Bot, bot));
         if (index < 0) return;
         double target = -index * _carouselLayout.Pitch;
         double cycle = _carouselLayout.CycleLength;
